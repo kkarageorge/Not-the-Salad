@@ -998,7 +998,6 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
 <header><h1>Perth Run feedback · ${esc(m.startedLocal.split(' GMT')[0])}</h1><div>${notes.length} notes · ${mmss(m.duration || 0)} · click a time to hear that moment</div>${audioName ? `<audio id="au" controls src="${audioName}"></audio>` : '<div>(no audio)</div>'}</header>
 <main>${notes.map(card).join('\n')}
 <details><summary>Timeline screenshots (every 10 s)</summary>${m.timeline.map(t => `<img src="${t.shot}" title="${mmss(t.t)} ${esc(t.loc)}" loading="lazy">`).join('')}</details></main>
-<script>__sp(0.24)</script>
 <script>(()=>{const a=document.getElementById('au');if(a)a.addEventListener('loadedmetadata',()=>{if(a.duration===Infinity){a.currentTime=1e9;a.addEventListener('timeupdate',function f(){a.removeEventListener('timeupdate',f);a.currentTime=0;});}});})();document.addEventListener('click',e=>{const t=e.target.closest('.t');const a=document.getElementById('au');if(t&&a){a.currentTime=Math.max(0,+t.dataset.t-1);a.play();}});<\/script>`;
   }
 
