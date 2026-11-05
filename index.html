@@ -137,13 +137,13 @@ setTimeout(function(){var sp=el('splash');if(sp){sp.className='out';setTimeout(f
   <h1 id="rtitle">Arrived</h1>
   <p id="rtext"></p>
   <table class="splits"><tbody id="rsplits"></tbody></table>
-  <div class="actions"><button id="again">Drive again</button><button class="ghost" id="tosetup">Menu</button></div>
+  <div class="actions"><button id="again">Drive again</button><button class="ghost" id="tosetup">Main menu</button></div>
 </div>
 
 <div class="card" id="pause" hidden>
   <h1 id="ptitle">Paused</h1>
   <p id="ptext">Press Esc or Resume to carry on.</p>
-  <div class="actions"><button id="resume">Resume</button><button class="ghost" id="photomode" type="button">Photo mode</button><button class="ghost" id="restart">Back to the start</button></div>
+  <div class="actions"><button id="resume">Resume</button><button class="ghost" id="photomode" type="button">Photo mode</button><button class="ghost" id="restart">Back to the start</button><button class="ghost" id="pquit" type="button">Main menu</button></div>
 </div>
 
 <script>__sp(0.05)</script>
@@ -1868,6 +1868,23 @@ registerProcessor('perth-v8', PerthV8);
       }
     }
 
+    // ---------- scenes (pausefix v1): 'drive' everything on; 'pause' and 'menu' fade out in ~0.1 s then sleep the context;
+    // 'results' keeps the street and the finish fanfare but winds the engine, tyres and wind down to nothing over ~2 s
+    let sceneName = 'drive', sceneTimer = 0;
+    function scene(name) {
+      sceneName = name; paused = name === 'pause' || name === 'menu';
+      if (!ctx || !master) return;
+      clearTimeout(sceneTimer);
+      const ramp = (p, v, tc) => { const t = now(); p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); p.setTargetAtTime(v, t, tc); };
+      if (paused) {
+        ramp(master.gain, 0, 0.03);
+        sceneTimer = setTimeout(() => { if (sceneName === name && ctx.state === 'running') ctx.suspend().catch(() => { }); }, 200);
+        return;
+      }
+      const wake = () => { if (sceneName !== name) return; ramp(master.gain, muted ? 0 : volume, 0.05); ramp(carBus.gain, name === 'results' ? 0 : 1, name === 'results' ? 0.6 : 0.04); };
+      if (ctx.state !== 'running') ctx.resume().then(wake, () => { }); else wake();
+    }
+
     // ---------- public
     const api = {
       start() {
@@ -1889,7 +1906,8 @@ registerProcessor('perth-v8', PerthV8);
       update,
       countdown, checkpoint, finish, impact, trafficPass,
       beep(f) { countdown(f >= 800 ? 0 : 1); },                         // the game's old beep(440)/beep(880)
-      pause(p) { paused = !!p; if (ctx) (paused ? ctx.suspend() : ctx.resume()).catch(() => { }); },
+      pause(p) { scene(p ? 'pause' : 'drive'); },   // pausefix v1: old call shape, now a quick fade instead of a hard cut
+      scene, get sceneName() { return sceneName; },
       toggleMute() { api.setMuted(!muted); if (o.onToast) o.onToast(muted ? 'Sound off' : 'Sound on'); return muted; },
       toggle() { return api.toggleMute(); },
       setMuted(m) { muted = !!m; save(); if (master) set(master.gain, muted ? 0 : volume, 0.05); },
@@ -26889,6 +26907,7 @@ if (window.PerthTrees && !window.__noPerthTrees) {
 .px-card h1{font:italic 800 52px/0.95 var(--display,"Barlow Condensed",sans-serif);margin:0 0 4px}.px-card h1 em{color:var(--sun,#ffb21e);font-style:inherit}
 .px-card h2{font:700 14px/1.2 var(--display,sans-serif);letter-spacing:.14em;text-transform:uppercase;color:var(--muted,#a9bbba);margin:18px 0 6px}
 .px-card p{margin:4px 0 10px;color:var(--muted,#a9bbba)}
+.px-story{font-style:italic;color:var(--sun,#ffb21e)!important;margin:2px 0 6px!important}
 .px-kick{font:700 14px/1 var(--display,sans-serif);letter-spacing:.18em;text-transform:uppercase;color:var(--river,#3fc1d0)}
 .px-badge{display:inline-block;font:italic 800 18px/1 var(--display,sans-serif);letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-radius:6px;background:linear-gradient(90deg,var(--sun,#ffb21e),var(--hot,#ff5a36));color:#1b0e00;margin-left:8px;vertical-align:middle}
 .px-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 4px}
@@ -27149,6 +27168,10 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
       else if (L.isBest && pb) sub = `${(pb.time - L.t).toFixed(2)} s faster than your old best. Your ghost will race you next time.`;
       else if (L.isBest) sub = 'First run on the books. Your ghost will race you next time.';
       else sub = `Your best is ${fmt(pb.time)}, ${(L.t - pb.time).toFixed(2)} s quicker.`;
+      // pausefix v1: a line from the family, kept for this result (Yiayia's lines from the menu's STORY)
+      if (L.story == null) { const SS = (window.PerthMenu && window.PerthMenu.STORY) || {}; const pk = a => (a && a.length ? a[Math.floor(Math.random() * a.length)] : '');
+        L.story = L.dir === 'rev' ? pk(L.valid ? ['Mum: Leftovers in the fridge before nine. Good. Bed.', 'Mum: Is the pastitsio still warm? Good.', 'Yiayia (on the phone): You got home? Eat something!'] : ['Mum: The pastitsio is cold. Never mind.']) : pk(L.valid ? SS.onTime : SS.late); }
+      const story = L.story;
       const ord = n => n + ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'));
       const rows = N.map((n, k) => {
         const sp = L.splits[k], s = L.secs[k], pbs = pb?.splits?.[k], sb = L.prevSectorBest[k];
@@ -27163,6 +27186,7 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
       $res = el('div', { class: 'px-card', id: 'pxResults', role: 'dialog', 'aria-label': 'Results' }, `
         <div class="px-kick">${esc(dirLabel(L.dir))}</div>
         <h1>${head}${L.isBest && pb ? '<span class="px-badge">Personal best</span>' : ''}</h1>
+        ${story ? `<p class="px-story">${esc(story)}</p>` : ''}
         <p>${sub}</p>
         <div class="px-stats">
           <div><b>${L.rank ? ord(L.rank) : '–'}</b><span>${L.rank ? 'of ' + board.count + ' run' + (board.count === 1 ? '' : 's') : L.valid ? 'outside top ' + BOARD_N : 'not counted'}</span></div>
@@ -27181,7 +27205,7 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
           ${best && best !== lastRec ? '<button class="px-btn alt" data-a="replayBest">Watch best run</button>' : ''}
           <button class="px-btn alt" data-a="photo">Photo mode</button>
           <button class="px-btn alt" data-a="board">All times</button>
-          <button class="px-btn alt" data-a="setup">Settings</button>
+          <button class="px-btn alt" data-a="setup">Main menu</button>
         </div>`);
       $res.addEventListener('click', e => {
         const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
@@ -33245,7 +33269,7 @@ body.pbCrash #speedo,body.pbCrash #roadsign,body.pbCrash #map,body.pbCrash #fpsb
         <button class="pm-item pm-nav" type="button" data-a="restart"><span>Restart run</span><small>Back to the start line, clock reset</small></button>
         <button class="pm-item pm-nav" type="button" data-a="psettings"><span>Settings</span><small>Graphics, gameplay, sound</small></button>
         <button class="pm-item pm-nav" type="button" data-a="photo"><span>Photo mode</span><small>Line up a shot of the car</small></button>
-        <button class="pm-item pm-nav" type="button" data-a="quit"><span>Quit to menu</span><small>Leave this run</small></button>
+        <button class="pm-item pm-nav" type="button" data-a="quit"><span>Main menu</span><small>Back to the couch. This run won’t count</small></button>
       </nav>`);
     const PAUSE_LINES = ["Yiayia: The lamb is off the spit. Where are you?", "Mum: She's standing at the gate again.", "The Gruffalo: Spit's stopped turning, mate. Hurry up.", "Yiayia: I can hear the car? No. It is the neighbour."];
     const PAUSE_LINES_REV = ["Mum: Are the leftovers still warm?", "Yiayia: Did you take the koulourakia too?", "Mum: Fridge. Before. Nine."];
@@ -36216,9 +36240,9 @@ try { const k = localStorage.getItem('perthFeel'); if (k) $('feel').value = k; }
 try { $('key').value = SAVED_KEY || localStorage.getItem('perthTilesKey'); } catch { $('key').value = SAVED_KEY; }
 const show = (id, on) => $(id).hidden = !on;
 const hudOn = on => ['roadsign', 'speedo', 'map', 'fpsbox'].forEach(id => show(id, on));
-function toSetup(msg) { if (STR) STR.hide(); state = 'setup'; hudOn(false); show('pause', false); show('loading', false); show('results', false); show('setup', true); if (BO) BO.hide(); $('err').textContent = msg || ''; }
+function toSetup(msg) { if (STR) STR.hide(); state = 'setup'; audio.scene('menu');   /* pausefix v1 */ hudOn(false); show('pause', false); show('loading', false); show('results', false); show('setup', true); if (BO) BO.hide(); $('err').textContent = msg || ''; }
 function resetToRoad() { placeClear(C.idx); camInit = true; toast('Back on the road', '', 1000); }
-document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'drive') togglePause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'drive') togglePause(); else if (state === 'done') audio.scene(document.hidden ? 'pause' : 'results'); });   // pausefix v1
 // per-run statistics: average frame rate and map data downloaded (shown on the results card)
 const runStats = (() => { let frames = 0, secs = 0, bytes = 0, base = 0; const tally = () => { let b = 0; for (const e of performance.getEntriesByType('resource')) if (/googleapis\.com/.test(e.name)) b += e.transferSize || e.encodedBodySize || 0; return b; };
   return { reset() { frames = 0; secs = 0; base = tally(); }, frame(dt) { frames++; secs += dt; }, get fps() { return secs > 0 ? frames / secs : 0; }, get mb() { return Math.max(0, tally() - base) / 1048576; } }; })();
@@ -36236,6 +36260,38 @@ if (!X) { $('photomode').hidden = true; $('times').hidden = true; }
 $('restart').onclick = () => { show('pause', false); audio.pause(false); startRun(); };
 $('again').onclick = () => { show('results', false); startRun(); };
 $('tosetup').onclick = () => { show('results', false); toSetup(); };
+$('pquit').onclick = () => toSetup();   // pausefix v1
+// ---- pausefix v1: controller on the end-of-run cards (results, best times, the free-drive card, replay, photo mode).
+// D-pad or left stick moves, A picks, B backs out of the times board / replay / photo mode. Buttons still held from the
+// finish line (A is the handbrake, B is boost) are ignored until they are let go.
+const cardPad = (() => {
+  let prev = {}, armed = false, held = {}, sel = null, shownAt = 0, lastCard = null;
+  const css = document.createElement('style'); css.textContent = '.padsel{outline:3px solid #ffb21e!important;outline-offset:3px;box-shadow:0 0 0 6px rgba(255,178,30,.25)!important}'; document.head.appendChild(css);
+  const card = () => { if (X && X.photo && X.photo.on) return 'photo'; if (X && X.replay && X.replay.on) return 'replay'; return $('pxBoard') || $('pxResults') || (!$('results').hidden ? $('results') : null); };
+  return now => {
+    const c = state === 'done' ? card() : null;
+    if (c !== lastCard) { lastCard = c; armed = false; shownAt = now; if (sel) sel.classList.remove('padsel'); sel = null; }
+    if (!c) return;
+    const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(Boolean) : null; if (!gp) return;
+    const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+    const st = { up: b(12) || ay < -0.6, down: b(13) || ay > 0.6, left: b(14) || ax < -0.6, right: b(15) || ax > 0.6, a: b(0), b: b(1) };
+    if (!armed) { prev = st; if (now - shownAt > 500 && !Object.values(st).some(Boolean)) armed = true; return; }
+    const P = prev; prev = st;
+    const edge = n => st[n] && !P[n];
+    const rep = n => { if (!st[n]) { held[n] = 0; return false; } if (!P[n]) { held[n] = now + 380; return true; } if (now >= held[n]) { held[n] = now + 140; return true; } return false; };
+    if (c === 'photo') { if (edge('b')) X.closePhoto(); return; }
+    if (c === 'replay') { if (edge('b')) X.closeReplay(); return; }
+    const btns = [...c.querySelectorAll('button')].filter(x => x.offsetParent !== null && !x.disabled);
+    if (!btns.length) return;
+    if (!sel || !btns.includes(sel)) sel = btns.includes(document.activeElement) ? document.activeElement : btns[0];
+    let i = btns.indexOf(sel), mv = 0;
+    if (rep('down') | rep('right')) mv = 1; if (rep('up') | rep('left')) mv = -1;
+    if (mv || !sel.classList.contains('padsel')) { btns.forEach(x => x.classList.remove('padsel')); sel = btns[(i + mv + btns.length) % btns.length]; sel.classList.add('padsel'); sel.focus(); sel.scrollIntoView({ block: 'nearest' }); }
+    if (edge('a')) sel.click();
+    else if (edge('b') && c.id === 'pxBoard') { const x = c.querySelector('[data-a="close"]'); if (x) x.click(); }
+  };
+})();
+
 $('go').onclick = () => {
   const key = $('key').value.trim();
   if (!/^AIza[0-9A-Za-z_\-]{30,}$/.test(key)) { $('err').textContent = 'That does not look like a Google API key. It starts with AIza and is about 39 characters long.'; return; }
@@ -36255,7 +36311,7 @@ const MENU = window.PerthMenu ? window.PerthMenu.mount({
   openBoard: X ? () => X.openBoard('setup') : null,
   routeKm: ROUTE_KM,
   // v3 pause menu: quit to the main menu, and apply settings changed while paused straight away
-  quit: () => { audio.pause(false); toSetup(); },
+  quit: () => toSetup(),   // pausefix v1: toSetup fades the game sound out itself
   applyLive: (id, v) => {
     if (id === 'fx') fxLevel = +v; else if (id === 'tod') applyTimeOfDay(v); else if (id === 'paint') { paint.color.setHex(+v); if (PCAR) PCAR.setPaint(+v); }
     else if (id === 'quality') { if (tiles) tiles.errorTarget = +v; }
@@ -36270,7 +36326,7 @@ function setDirection(dir) {
   if (dir === DIR) return;
   DIR = dir; TRK = dir === 'fwd' ? road : REV.S; TRK_LEN = TRK.at(-1).d; CHECKPOINTS = cpsFor(dir); buildGates(); lastSeg = -1;
 }
-function startRun() { if (PCAR) PCAR.repair();
+function startRun() { if (PCAR) PCAR.repair(); audio.scene('drive');   /* pausefix v1 */
   setDirection($('dir') ? $('dir').value : 'fwd');
   finished = false; placeAt(0); lastSeg = -1; camInit = true; view = 0; $('view-name').textContent = VIEWS[0]; slidePts = 0;
   cpNext = 0; splits = []; ghostRec = []; ghostRecT = 0; best = loadBest(); buildGhost(); if (X) X.runStart(); if (BO) BO.runStart(); if (STR) STR.runStart();
@@ -36295,10 +36351,10 @@ function checkFinish() {
   if (finished || TRK[C.idx].d <= TRK_LEN - 12) return;
   finished = true; state = 'done'; if (STR) STR.finish();
   const t = runTime(); const valid = cpNext === CHECKPOINTS.length;
-  if (FREE()) { $('rtitle').innerHTML = "Made it to <em>Yiayia's</em>"; $('rtext').textContent = 'Free drive, nothing on the clock. ' + (MARKS[DIR] && MARKS[DIR].length ? 'Spots you marked (km to go): ' + MARKS[DIR].join(', ') : ''); $('rsplits').innerHTML = ''; hudOn(false); show('results', true); audio.pause(true); setTimeout(() => audio.pause(false), 50); return; }
+  if (FREE()) { $('rtitle').innerHTML = "Made it to <em>Yiayia's</em>"; $('rtext').textContent = 'Free drive, nothing on the clock. ' + (MARKS[DIR] && MARKS[DIR].length ? 'Spots you marked (km to go): ' + MARKS[DIR].join(', ') : ''); $('rsplits').innerHTML = ''; hudOn(false); show('results', true); audio.scene('results'); audio.finish({ newBest: false }); return; }
   while (splits.length < CHECKPOINTS.length) splits.push(null); splits.push(t);
   if (DIR !== 'rev') setTimeout(() => toast(valid ? 'Made it!' : 'Made it... sort of', valid ? 'Yiayia hid the crispy bits from the cousins. Opa!' : 'The cousins left you the salad', 4000), 300);
-  if (X) { X.finish({ time: t, valid, splits: splits.slice(0, CHECKPOINTS.length), fps: runStats.fps, mb: runStats.mb, note: autoQ.step ? 'auto smoothness lowered quality' : '' }); hudOn(false); audio.pause(true); setTimeout(() => audio.pause(false), 50); return; }
+  if (X) { const xr = X.finish({ time: t, valid, splits: splits.slice(0, CHECKPOINTS.length), fps: runStats.fps, mb: runStats.mb, note: autoQ.step ? 'auto smoothness lowered quality' : '' }); hudOn(false); audio.scene('results'); audio.finish({ newBest: !!(xr && xr.isBest) }); return; }
   const prev = best, isBest = valid && (!prev || t < prev.time);
   if (isBest) { best = { time: t, splits: splits.slice(), ghost: ghostRec, at: new Date().toISOString() }; saveBest(best); }
   if (!valid) { $('rtitle').innerHTML = 'Unofficial <em>' + fmt(t) + '</em>'; $('rtext').textContent = 'A checkpoint was skipped, so this run does not count.'; }
@@ -36308,7 +36364,7 @@ function checkFinish() {
   const names = [...CHECKPOINTS.map(c => c.name), TXT[DIR].to];
   $('rsplits').innerHTML = names.map((n, k) => { const b = prev?.splits?.[k]; const d = b != null && splits[k] != null ? splits[k] - b : null;
     return `<tr><td>${n}</td><td>${splits[k] == null ? '—' : fmt(splits[k])}</td><td style="color:${d == null ? 'inherit' : d < 0 ? '#6fd08c' : '#ef6b5b'}">${d == null ? '' : fmtDelta(d)}</td></tr>`; }).join('');
-  hudOn(false); show('results', true); audio.pause(true); setTimeout(() => audio.pause(false), 50); audio.finish({ newBest: isBest });
+  hudOn(false); show('results', true); audio.scene('results'); audio.finish({ newBest: isBest });
 }
 
 // ================= automatic quality =================
@@ -36535,6 +36591,7 @@ function loop(now) {
       audio.update({ dt: rawDt, rpm: C.rpm, throttle: inp.thr, brake: inp.brk, slip: C.slip, kmh, gear: C.gear, handbrake: !!inp.hand, hit: C.hit, surface: C.surf, x: C.x, z: C.z, road: si.name, onBridge: si.bridge }); }
     PADIN.rumble(C, kmh, dt);
   } else if (state === 'paused') readInput();
+  else if (state === 'loading' || state === 'done') { audio.update({ dt: rawDt, rpm: 0.15, throttle: 0, brake: 0, slip: 0, kmh: 0, gear: 1, handbrake: false, hit: 0, surface: 'asphalt', x: C.x, z: C.z, road: '', onBridge: false }); if (state === 'done') cardPad(now); }   // pausefix v1
   if (PT) PT.update(dt * (typeof BOTS === "function" ? BOTS() : 1), state);   // traffic slows with the crash slow-mo (extras/burnout)
   if (traffic.length && (state === 'drive' || state === 'countdown' || state === 'loading')) { updateTraffic(state === 'drive' ? dt * BOTS() : 0); updateOncoming(state === 'drive' ? dt * BOTS() : 0); }
   if (X) X.preRender(dt);
