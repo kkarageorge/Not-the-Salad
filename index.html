@@ -2064,11 +2064,41 @@ const toLocal = (la, lo) => ell.getCartographicToPosition(la * DEG, lo * DEG, 0,
 const raw = PTS.map(([la, lo]) => { const v = toLocal(la, lo); v.y = 0; return v; });
 const spline = new THREE.CatmullRomCurve3(raw, false, 'centripetal');
 const RAWN = raw.length - 1;
+
+// ---- Surrey Rd straightening (5 Nov, Kostas: "surrey road is a mess the whole of it"). The route has only 3 points along Surrey Rd
+// (66A, 25 m on, the Newey St corner 240 m away) and the next one turns 90 degrees into Newey St, so the centripetal spline bowed
+// the road up to 16 m into the SW front gardens: lots, fences and verge trees ended up on the asphalt and Google's ground under it.
+// The real street is dead straight from 66A to Newey St. Samples inside the Surrey Rd / Newey St corner box are moved onto the
+// cadastre centreline (same frame as extras rivervale/rvsurrey.js, LGATE-001) with a 10 m radius corner; count and d are kept, so
+// every per-sample table (heights bake, kerbs, signs) still lines up.
+function straightenSurrey(arr) {
+  const LAT0 = -31.9609192, LON0 = 115.9094884, KE = 94449, KN = 110870, U = [-0.70252, 0.71166], W = [-0.71166, -0.70252];
+  const O = toLocal(LAT0, LON0), vE = toLocal(LAT0, LON0 + 100 / KE).sub(O).multiplyScalar(0.01), vN = toLocal(LAT0 + 100 / KN, LON0).sub(O).multiplyScalar(0.01);
+  const XZ = (s, t) => { const e = U[0] * s + W[0] * t, n = U[1] * s + W[1] * t; return new THREE.Vector2(O.x + vE.x * e + vN.x * n, O.z + vE.z * e + vN.z * n); };
+  const det = vE.x * vN.z - vE.z * vN.x;
+  const ST = p => { const dx = p.x - O.x, dz = p.y - O.z, e = (dx * vN.z - dz * vN.x) / det, n = (vE.x * dz - vE.z * dx) / det; return [e * U[0] + n * U[1], e * W[0] + n * W[1]]; };
+  // path in (s, t): Surrey Rd centreline t = -11.1 + 0.005 s, 10 m corner, Newey St centreline s = 238.8 - 0.0083 (t + 9.89)
+  const P = [], R = 10, sC = 228.8, tA = -11.1 + 0.005 * sC, cS = sC, cT = tA - R;
+  for (let s = -260; s < sC; s += 1) P.push([s, -11.1 + 0.005 * Math.max(0, s)]);
+  for (let k = 0; k <= 16; k++) { const a = Math.PI / 2 * k / 16; P.push([cS + R * Math.sin(a), cT + R * Math.cos(a)]); }
+  for (let t = cT - 1; t > -150; t -= 1) P.push([238.8 - 0.0083 * (t + 9.89), t]);
+  const L = [0]; for (let i = 1; i < P.length; i++) L.push(L[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  const at = l => { let i = 1; while (i < P.length - 1 && L[i] < l) i++; const f = Math.max(0, Math.min(1, (l - L[i - 1]) / (L[i] - L[i - 1]))); return XZ(P[i - 1][0] + (P[i][0] - P[i - 1][0]) * f, P[i - 1][1] + (P[i][1] - P[i - 1][1]) * f); };
+  const proj = p => { const [s, t] = ST(p); let bi = 0, bd = Infinity; for (let i = 0; i < P.length; i++) { const d = (P[i][0] - s) ** 2 + (P[i][1] - t) ** 2; if (d < bd) { bd = d; bi = i; } } return L[bi]; };
+  const inBox = r => { const [s, t] = ST(r.p); return s > -250 && s < 252 && t > -100 && t < 14; };
+  let n = 0;
+  for (let a = 0; a < arr.length; a++) { if (!inBox(arr[a])) continue; let b = a; while (b + 1 < arr.length && inBox(arr[b + 1])) b++;
+    if (b - a >= 4) { const la = proj(arr[a].p), lb = proj(arr[b].p), da = arr[a].d, db = arr[b].d;
+      for (let i = a; i <= b; i++) { arr[i].p = at(la + (lb - la) * (arr[i].d - da) / (db - da)); n++; } }
+    a = b; }
+  return n;
+}
 const road = [];
 {
   let prev = null, dist = 0; const N = RAWN * 24, tmp = [];
   for (let k = 0; k <= N; k++) { const u = k / N, v = spline.getPoint(u), p = new THREE.Vector2(v.x, v.z); if (prev) dist += p.distanceTo(prev); tmp.push({ p, d: dist, seg: PTS[Math.min(RAWN, Math.round(u * RAWN))][2] }); prev = p; }
   let next = 0; for (const s of tmp) if (s.d >= next) { road.push(s); next = s.d + 3; }
+  window.__surreyStraight = straightenSurrey(road);
   for (let i = 0; i < road.length; i++) { const a = road[Math.max(0, i - 1)].p, b = road[Math.min(road.length - 1, i + 1)].p; road[i].t = b.clone().sub(a).normalize(); road[i].r = new THREE.Vector2(-road[i].t.y, road[i].t.x); }
 }
 // distances are measured from the ORIGINAL start (Canning Hwy at Way Rd): the Rivervale head added later runs at negative d,
@@ -2107,6 +2137,8 @@ function gradeClamp(arr, MAXG = 0.09, lock = null) {
     for (let i = arr.length - 2; i >= 0; i--) { if (lock && lock(arr[i])) continue; const ds = Math.max(1, arr[i + 1].d - arr[i].d), lim = MAXG * ds; if (arr[i].h > arr[i + 1].h + lim) arr[i].h = arr[i + 1].h + lim; else if (arr[i].h < arr[i + 1].h - lim) arr[i].h = arr[i + 1].h - lim; }
   }
 }
+// Surrey Rd runs on to the Newey St corner (d ~ -3970); the route data switched to "Newey Street" (and 50 km/h) 120 m early, at -4090
+for (const r of road) if (r.seg === 1 && r.d < -3972 && segInfo(0).name === 'Surrey Road') r.seg = 0;
 // heights: baked every 6 m from Google's 3D surface, filled and smoothed
 {
   const H = window.ROAD_H.slice();
@@ -2116,6 +2148,14 @@ function gradeClamp(arr, MAXG = 0.09, lock = null) {
   // -3000 m is real: Great Eastern Hwy's bridge over the Graham Farmer Fwy.)
   const HUMPS = [[-3945, -3885]];
   for (let i = 0; i < road.length; i++) if (HUMPS.some(([a, b]) => road[i].d >= a && road[i].d <= b)) H[i] = null;
+  // Surrey Rd (5 Nov, Kostas: "66a surrey road is below the road"): single bake samples that hit a verge tree sit 4-5 m above
+  // their neighbours (start line: -17.6 among -22.7s). At the very start the median window ran off the array and repeated that
+  // first spike, so the street began on a 4.5 m hump with 66A and its neighbours below it. Spikes more than 2 m above the local
+  // median are dropped on the Rivervale head (bridges there are runs, not single samples), and the median below no longer pads.
+  { const H0 = H.slice();
+    for (let i = 0; i < road.length; i++) { if (road[i].d > -3000 || H0[i] == null) continue; const w = [];
+      for (let j = -5; j <= 5; j++) { const q = i + j; if (q >= 0 && q < road.length && H0[q] != null) w.push(H0[q]); }
+      w.sort((x, y) => x - y); if (w.length >= 4 && H0[i] > w[w.length >> 1] + 2) H[i] = null; } }
   const known = [];
   for (let i = 0; i < road.length; i++) if (H[i] != null) known.push(i);
   let k = 0;
@@ -2125,7 +2165,7 @@ function gradeClamp(arr, MAXG = 0.09, lock = null) {
     road[i].h = (i <= a || a === b) ? H[a] : H[a] + (H[b] - H[a]) * (i - a) / (b - a);
   }
   // median then gaussian smoothing (removes cars and kerb noise in the measurement)
-  const med = road.map((_, i) => { const w = []; for (let j = -5; j <= 5; j++) w.push(road[Math.min(road.length - 1, Math.max(0, i + j))].h); w.sort((x, y) => x - y); return w[5]; });
+  const med = road.map((_, i) => { const w = []; for (let j = -5; j <= 5; j++) { const q = i + j; if (q >= 0 && q < road.length) w.push(road[q].h); } w.sort((x, y) => x - y); return w[w.length >> 1]; });   // in-range samples only (no edge padding)
   const g = [1, 4, 7, 4, 1], gs = 17;
   road.forEach((r, i) => { let s = 0; for (let j = -2; j <= 2; j++) s += g[j + 2] * med[Math.min(road.length - 1, Math.max(0, i + j))]; r.h = s / gs; });
   // (5 Nov: a ground-follow offset from the baked ground was tried on Surrey Rd and reverted: the baked ground there reads 3-5 m
@@ -2188,6 +2228,7 @@ const REV = window.SCENERY.rev ? (() => {
   let prev = null, dist = 0; const tmp = [];
   for (let k = 0; k <= N; k++) { const u = k / N, v = sp.getPoint(u), p = new THREE.Vector2(v.x, v.z); if (prev) dist += p.distanceTo(prev); tmp.push({ p, d: dist, seg: RP[Math.min(raw.length - 1, Math.round(u * (raw.length - 1)))][2] }); prev = p; }
   let next = 0; for (const s of tmp) if (s.d >= next) { R.push(s); next = s.d + 3; }
+  window.__surreyStraightRev = straightenSurrey(R);
   for (let i = 0; i < R.length; i++) { const a = R[Math.max(0, i - 1)].p, b = R[Math.min(R.length - 1, i + 1)].p; R[i].t = b.clone().sub(a).normalize(); R[i].r = new THREE.Vector2(-R[i].t.y, R[i].t.x); }
   const seg = i => { const s = RS[i]; return { name: s[0].startsWith('(') ? 'Freeway ramp' : s[0], ref: s[1], lanes: s[2], width: s[3], limit: s[4], oneWay: !!s[5], bridge: !!s[6] }; };
   // heights from the reverse bake, filled + smoothed like the forward road
@@ -25572,7 +25613,7 @@ function lmSetBase(L, y, n) {
     // height check (5 Nov): a lot beside the road sits within ~1 m of the road at the kerb, a bit more further back (slopes); Google's
     // ring readings under fig canopies and on torn ground were putting zoo and highway lots metres above or below the road
     const HILLSIDE = /^lmx-(mtstreet|mounthosp|kingspark|rvgeh3|narrows|causeway|boats|oldmill|burswood|rpyc)$/;   // on the escarpment, bridges or water: keep their own heights
-    if (L.nearRoad != null && !HILLSIDE.test(L.kind)) { const tol = 0.8 + 0.06 * L.nearD, lo = L.nearRoad - tol, hi = L.nearRoad + 0.15 + tol; if (y < lo || y > hi) { const y2 = Math.min(hi, Math.max(lo, y)); if (window.__lmxBaseFix) window.__lmxBaseFix.push([L.kind, +y.toFixed(1), +y2.toFixed(1)]); y = y2; } }
+    if (L.nearRoad != null && !HILLSIDE.test(L.kind)) { const tol = 0.8 + 0.06 * L.nearD, lo = /^lmx-(rvsurrey|house66a|surreyback)$/.test(L.kind) ? L.nearRoad + 0.05 : L.nearRoad - tol, hi = L.nearRoad + 0.15 + tol;   /* Surrey Rd lots never below the kerb (5 Nov) */ if (y < lo || y > hi) { const y2 = Math.min(hi, Math.max(lo, y)); if (window.__lmxBaseFix) window.__lmxBaseFix.push([L.kind, +y.toFixed(1), +y2.toFixed(1)]); y = y2; } }
   }
   L.base = y; L.baseN = n; if (L.onBase) L.onBase(y);
 }
