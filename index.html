@@ -32204,6 +32204,51 @@ PTX.mods.people = G => {
   }
 
   // ------------------------------------------------------------------ create
+
+  // ------------------------------------------------------------------ ready-made skins (free CC-BY models, cleaned up offline)
+  // extras/cars/models/build.mjs turns each downloaded model into cars/<id>.bin: the body cut into the parts the damage code
+  // moves (bonnet, bumpers, mirrors, lamps, body, cabin) with one group per material role, and one wheel.
+  // create() builds the coded car at once, then swaps the skin in when its file has loaded (or straight away if cached).
+  // If the file cannot load, the coded car simply stays.
+  const SKINS = {};   // id -> { p: Promise, data }
+  const SKIN_CREDITS = {
+    nova: '"Toyota AE92" by Broniev (Sketchfab, CC BY 4.0), rebuilt as a 5-door hatch',
+    lancer: '"Mitsubishi Lancer Sedan 2009" by Nieve5677 (Sketchfab, CC BY 4.0)',
+    ix3: '"BMW iX3" by MattDoesBlender (Sketchfab, CC BY 4.0)',
+  };
+  function skinBase() { return root.PERTH_CAR_SKINS != null ? root.PERTH_CAR_SKINS : 'cars/'; }
+  function loadSkin(THREE, id) {
+    if (SKINS[id]) return SKINS[id].p;
+    const e = SKINS[id] = { data: null, p: null };
+    if (root.PERTH_CAR_SKINS === false || typeof fetch !== 'function') { e.p = Promise.resolve(null); return e.p; }
+    e.p = fetch(skinBase() + id + '.bin').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(buf => (e.data = decodeSkin(THREE, buf)))
+      .catch(err => { console.warn('[perth-car] no ready-made skin for ' + id + ', keeping the coded car:', err && err.message); return null; });
+    return e.p;
+  }
+  // decode a .bin car skin (made by extras/cars/models/build.mjs): parts -> indexed BufferGeometry with one group per role
+  function decodeSkin(THREE, buf) {
+    const dv = new DataView(buf); if (String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3)) !== 'PCS1') throw new Error('not a car skin');
+    const jl = dv.getUint32(4, true); const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, jl)));
+    let off = 8 + jl; const parts = {};
+    for (const p of head.parts) {
+      const nv = p.nv, q = p.q;
+      const pos16 = new Int16Array(buf.slice(off, off + nv * 6)); off += nv * 6;
+      const nb = Math.ceil(nv * 3 / 4) * 4; const nor8 = new Int8Array(buf.slice(off, off + nb)); off += nb;
+      const ib = p.big ? p.ni * 4 : Math.ceil(p.ni / 2) * 4; const idx = p.big ? new Uint32Array(buf.slice(off, off + ib)) : new Uint16Array(buf.slice(off, off + ib)).subarray(0, p.ni); off += ib;
+      const P = new Float32Array(nv * 3), N = new Float32Array(nv * 3);
+      for (let i = 0; i < nv * 3; i++) { const a = i % 3; P[i] = q[a] + (pos16[i] + 32767) * q[3 + a]; N[i] = nor8[i] / 127; }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+      g.setAttribute('rest', new THREE.BufferAttribute(P.slice(), 3)); g.setAttribute('dmg', new THREE.BufferAttribute(new Float32Array(nv), 1));
+      g.setIndex(new THREE.BufferAttribute(idx, 1));
+      p.groups.forEach(([role, s, c], gi) => g.addGroup(s, c, gi));
+      g.computeBoundingSphere(); g.computeBoundingBox();
+      parts[p.name] = { geo: g, roles: p.groups.map(x => x[0]) };
+    }
+    return { meta: head.meta, wheel: head.wheel, credit: head.credit, parts };
+  }
+
   function create(o) {
     o = o || {};
     useModel(o.model || 'lancer'); const MD = M, WRm = WR;
@@ -33037,7 +33082,7 @@ PTX.mods.people = G => {
       st.view = v;
       if (v === 'bonnet') {
         shell.material[1] = hidden; shell.material[2] = hidden; shell.material[4] = hidden;
-        for (const ch of upper.children) if (ch !== shell && ch !== bonnetPivot && ch !== bumpF.piv && ch.name !== 'under' && ch !== engine && !lamps.head.some(h => h.g === ch) && !glows.head.includes(ch)) ch.visible = false;
+        for (const ch of upper.children) if (ch !== shell && !(skinned && ch === skinned.body) && ch !== bonnetPivot && ch !== bumpF.piv && ch.name !== 'under' && ch !== engine && !lamps.head.some(h => h.g === ch) && !glows.head.includes(ch)) ch.visible = false;
         lower.visible = false;
       } else {
         for (let i = 0; i < shellMats.length; i++) shell.material[i] = shellMats[i];
@@ -33059,11 +33104,94 @@ PTX.mods.people = G => {
     function ghostModel() {
       if (ghostSrc) return ghostSrc;
       const g = new THREE.Group();
+      if (skinned) {
+        for (const x of [skinned.body, skinned.cabin, skinned.bonnet, bumpF.mesh, bumpR.mesh]) if (x) { const c = x.geometry.clone(); c.setAttribute('position', c.attributes.rest.clone()); c.computeVertexNormals(); const mm = new THREE.Mesh(c, paint); if (x === skinned.bonnet) mm.position.copy(bonnetPivot.position).add(x.position); g.add(mm); }
+        for (const w of wheels) { const t = w.spin.children[0] ? new THREE.Mesh(w.spin.children[0].geometry, tyreM) : new THREE.Mesh(tyreGeo, tyreM); t.position.copy(w.home); if (w.side < 0) t.scale.x = -1; g.add(t); }
+        ghostSrc = g; return g;
+      }
       const add = (geo, m) => { const c = geo.clone(); if (c.attributes.rest) c.setAttribute('position', c.attributes.rest.clone()); c.computeVertexNormals(); const mm = new THREE.Mesh(c, paint); if (m) mm.applyMatrix4(m); g.add(mm); };
       add(shellGeo); bonnet.updateWorldMatrix(true, false);
       add(bonnet.geometry); add(bumpF.mesh.geometry); add(bumpR.mesh.geometry);
       for (const w of wheels) { const t = new THREE.Mesh(tyreGeo, tyreM); t.position.copy(w.home); g.add(t); }
       ghostSrc = g; return g;
+    }
+
+
+    // ---------------- ready-made skin (swapped in over the coded body; the damage, lamps and wheels keep working) ----------------
+    let skinned = null, disposed = false;
+    function applySkin(S) {
+      if (!S || skinned || disposed) return;
+      const m = S.meta;
+      // 1. take the coded body off the car
+      const keep = new Set([engine, bonnetPivot, bumpF.piv, bumpR.piv, ...flames, ...glows.head, ...glows.tail, ...mirrors.map(x => x.g)]);
+      const gone = [];
+      for (const ch of upper.children.slice()) if (!keep.has(ch) && ch.name !== 'mati') { upper.remove(ch); gone.push(ch); }
+      bonnetPivot.remove(bonnet); gone.push(bonnet);
+      for (const b of [bumpF, bumpR]) { b.piv.remove(b.mesh); gone.push(b.mesh); }
+      for (const mr of mirrors) for (const ch of mr.g.children.slice()) { mr.g.remove(ch); gone.push(ch); }
+      for (let i = deformables.length - 1; i >= 0; i--) if (!attached(deformables[i].mesh)) deformables.splice(i, 1);
+      for (const g of gone) g.traverse(ob => { if (ob.geometry && ob.geometry !== tyreGeo && ob.geometry !== rimGeo && ob.geometry !== shellGeo) ob.geometry.dispose(); });
+      // 2. one material per role (paint, glass and trim keep the damage shader)
+      const MAT = {
+        paint, trim, glass, chrome: chromeM, head: headM, fog: headM, headIn: headChromeM, tail: tailM, rev: revM, amber: amberM,
+        tailIn: new THREE.MeshStandardMaterial({ color: 0x3a0608, roughness: 0.3, metalness: 0.2 }),
+        plate: new THREE.MeshStandardMaterial({ color: 0xe6e2d2, roughness: 0.5 }),
+        bumper: MD.id === 'nova' ? bumpGreyM : trim, accent: accentBlueM,
+        under: new THREE.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.8, metalness: 0.3 }),
+        tyre: tyreM, caliper: caliperM,
+        rim: new THREE.MeshStandardMaterial({ color: 0xb9bdc2, metalness: 0.85, roughness: 0.28 }),
+        rimDark: new THREE.MeshStandardMaterial({ color: 0x2a2c30, metalness: 0.6, roughness: 0.35 }),
+        disc: new THREE.MeshStandardMaterial({ color: 0x55585c, metalness: 0.7, roughness: 0.4 }),
+      };
+      if (m.doubleSided) for (const mt of [...Object.values(MAT), brokenM]) { mt.side = THREE.DoubleSide; mt.needsUpdate = true; }   // the AE92 source has mixed-up faces
+      const mk = (name, single) => {
+        const p = S.parts[name]; if (!p) return null;
+        const g = p.geo.clone(); g.boundingBox = p.geo.boundingBox.clone();
+        const mats = p.roles.map(r => MAT[r] || trim);
+        const x = new THREE.Mesh(g, single ? mats[0] : mats); x.castShadow = true; x.name = 'skin-' + name; return x;
+      };
+      // 3. body (dents), cabin (hidden in the bonnet view)
+      const body = mk('body'), cabin = mk('cabin');
+      for (const x of [body, cabin]) if (x) { upper.add(x); deformable(x); }
+      // bonnet hinges at its rear edge
+      const bn = mk('bonnet');
+      if (bn) { const bb = bn.geometry.boundingBox; bonnetPivot.position.set(0, bb.max.y - 0.03, bb.max.z); bn.position.copy(bonnetPivot.position).negate(); bonnetPivot.add(bn); deformable(bn); }
+      // bumpers hang from one end, then drop off
+      for (const [b, name] of [[bumpF, 'bumperF'], [bumpR, 'bumperR']]) {
+        const x = mk(name); if (!x) continue; b.piv.add(x); b.mesh = x; b.e = deformable(x);
+        const bb = x.geometry.boundingBox, z = b.front ? bb.max.z : bb.min.z; b.plan = [[bb.min.x + 0.05, z], [bb.max.x - 0.05, z]];
+        if (b.lost || b.hang) setHangPivot(b);
+      }
+      // mirrors snap off whole
+      for (const mr of mirrors) { const x = mk(mr.side < 0 ? 'mirrorL' : 'mirrorR'); if (!x) continue; const c = x.geometry.boundingBox.getCenter(new V3()); mr.g.position.copy(c); x.position.copy(c).negate(); mr.g.add(x); }
+      // lamps: one mesh per lamp so a hit breaks just that one; brake / tail glow comes from the shared lamp materials
+      const used = new Set();
+      for (const [list, pre, mat] of [[lamps.head, 'head', headM], [lamps.tail, 'tail', tailM]]) for (const l of list) {
+        const nm = pre + (l.side < 0 ? 'L' : 'R'); if (used.has(nm)) { l.parts = []; l.broken = true; continue; } used.add(nm);
+        const x = mk(nm, true); if (!x) continue; x.material = l.broken ? brokenM : mat; upper.add(x); l.g = x; l.parts = [x]; l.at = x.geometry.boundingBox.getCenter(new V3());
+      }
+      glows.head.forEach((s, i) => { const l = lamps.head[i]; if (l) s.position.copy(l.at).add(new V3(0, 0, -0.08)); });
+      glows.tail.forEach((s, i) => { const l = lamps.tail[i]; if (l) s.position.copy(l.at).add(new V3(0, 0, 0.05)); });
+      // wheels: the model's own wheel, at the model's own axles and track
+      const wg = S.parts.wheel;
+      if (wg) for (const w of wheels) {
+        const flip = w.spin.parent; for (const ch of flip.children.slice()) if (ch !== w.spin) flip.remove(ch);
+        for (const ch of w.spin.children.slice()) w.spin.remove(ch);
+        const x = new THREE.Mesh(wg.geo, wg.roles.map(r => MAT[r] || tyreM)); x.castShadow = true; w.spin.add(x);
+        w.base.position.set(w.side * (w.front ? m.trackF : m.trackR), m.wheelY, w.front ? m.axleF : m.axleR); w.home.copy(w.base.position);
+      }
+      // Yiayia's mati goes back on the (new) hatch glass
+      const mati = upper.getObjectByName('mati');
+      if (mati) { const hit = cabin && new THREE.Raycaster(new V3(-0.30, 1.18, 6), new V3(0, 0, -1)).intersectObject(cabin, false)[0];
+        if (hit) { const n = hit.face.normal.clone(); if (n.z < 0) n.negate(); mati.position.copy(hit.point).addScaledVector(n, 0.01); mati.lookAt(mati.position.clone().add(n)); } else upper.remove(mati); }
+      // sizes for the camera, the crash box and anyone else who asks
+      const bb = new THREE.Box3(); for (const x of [body, cabin, bumpF.mesh, bumpR.mesh]) if (x && x.geometry.boundingBox) bb.union(x.geometry.boundingBox);
+      const d = api.dims; d.length = bb.max.z - bb.min.z; d.width = bb.max.x - bb.min.x; d.height = bb.max.y; d.half = [d.width / 2, d.height / 2, d.length / 2];
+      d.wheelRadius = m.wheelR; d.wheelbase = m.axleR - m.axleF; d.skin = true; d.credit = S.credit;
+      BOX[0] = d.width / 2 - 0.04; BOX[2] = d.length / 2 - 0.03;
+      skinned = { body, cabin, bonnet: bn, credit: S.credit };
+      api.skin = skinned;
+      setView(st.view, true);
     }
 
     const api = {
@@ -33076,6 +33204,7 @@ PTX.mods.people = G => {
       damage() { return { front: st.dmgF, rear: st.dmgR, left: st.dmgL, right: st.dmgRt, hits: st.total, bonnetLost: st.bonnetLost, bumpers: [bumpF.lost, bumpR.lost] }; },
       model: MD.id, dims: { length: L, width: 2 * hwOf(0.5), height: MD.height, centre: MD.boxC + 0.08, half: [hwOf(0.5), MD.height / 2, L / 2], wheelRadius: WRm, wheelbase: AXLE_R - AXLE_F, eye: MD.eye },
       dispose() {
+        disposed = true;
         if (typeof root.removeEventListener === 'function') { root.removeEventListener('perth-crash', onCrash); root.removeEventListener('perth-respawn', onRespawn); }
         try { if (sparks.parent) sparks.parent.remove(sparks); for (const m of smokes) if (m.s.parent) m.s.parent.remove(m.s); for (const f of flyers) if (f.obj && f.obj.parent) f.obj.parent.remove(f.obj); } catch (e) { }
         group.traverse(ob => { if (ob.geometry) ob.geometry.dispose(); });
@@ -33084,10 +33213,12 @@ PTX.mods.people = G => {
     };
     api.setPaint(paint.color.getHex());
     if (!o.preview) root.__pcar = api;
+    if (o.skin !== false) { const se = SKINS[MD.id]; if (se && se.data) applySkin(se.data); else loadSkin(THREE, MD.id).then(applySkin); }
     return api;
   }
 
-  root.PerthCar = { create, TUNING, MODELS: Object.keys(MODELS) };
+  root.PerthCar = { create, TUNING, MODELS: Object.keys(MODELS), CREDITS: SKIN_CREDITS,
+    preload(THREE, ids) { THREE = THREE || root.THREE; return Promise.all((ids || Object.keys(MODELS)).map(id => loadSkin(THREE, id))); } };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /* perth-cars.js - pick your car (extras/cars). Three cars after you press Drive. All three are yours; each has its own stats, a special and a gimmick.
@@ -33164,6 +33295,7 @@ PTX.mods.people = G => {
 #pcsel canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #pcsel .pc-arrow{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:64px;border:0;border-radius:12px;background:rgba(0,0,0,.35);color:#fff;font:700 28px/1 sans-serif;cursor:pointer}
 #pcsel .pc-arrow.l{left:10px}#pcsel .pc-arrow.r{right:10px}
+#pcsel .pc-credit{position:absolute;right:12px;bottom:8px;max-width:58%;text-align:right;color:#8a7f73;font-size:10.5px;line-height:1.25;opacity:.8;pointer-events:none}
 #pcsel .pc-plate{position:absolute;left:14px;bottom:12px;background:#f6f1e4;color:#1b1b1b;border:3px solid #1b1b1b;border-radius:6px;padding:2px 10px;font:700 15px/1.2 "Barlow Condensed",sans-serif;letter-spacing:.12em}
 #pcsel .pc-info{display:flex;flex-direction:column;min-height:0;overflow:auto;padding-bottom:6px}
 #pcsel .pc-tabs{display:flex;gap:8px}
@@ -33211,6 +33343,18 @@ PTX.mods.people = G => {
   // ------------------------------------------------------------------ the game-side object
   // env: { THREE, PerthCar, getC, handling, PerthHandling, paint, swapCar(model), audio, straights(), toast?, state() }
   function create(env) {
+    // CC BY credits for the ready-made car models, added to the main menu's Credits screen once it exists
+    const addCredits = () => {
+      try {
+        const C = env.PerthCar && env.PerthCar.CREDITS; if (!C || document.getElementById('pc-credits')) return;
+        const h = [...document.querySelectorAll('.pm-h')].find(x => /credits/i.test(x.textContent)); if (!h) return;
+        const scr = h.closest('.pm-head') ? h.closest('.pm-head').parentNode : h.parentNode;
+        const d = document.createElement('div'); d.id = 'pc-credits'; d.style.cssText = 'margin:14px 0 0;font-size:13px;line-height:1.5;opacity:.85';
+        d.innerHTML = '<b>Car models</b> (free, CC BY 4.0, modified for this game):<br>' + Object.values(C).map(t => t.replace(/[<>&]/g, '')).join('<br>');
+        scr.appendChild(d);
+      } catch (e) { }
+    };
+    addCredits(); setTimeout(addCredits, 3000);
     const THREE = env.THREE;
     const st = Object.assign({ id: 'lancer' }, load()); delete st.paints;
     if (!CARS[st.id]) st.id = 'lancer';
@@ -33224,7 +33368,7 @@ PTX.mods.people = G => {
     root_.innerHTML = `
       <div class="pc-top"><h1>Pick your <span>car</span></h1></div>
       <div class="pc-main">
-        <div class="pc-stage"><canvas></canvas><button class="pc-arrow l" aria-label="Previous car">&#8249;</button><button class="pc-arrow r" aria-label="Next car">&#8250;</button><div class="pc-plate"></div></div>
+        <div class="pc-stage"><canvas></canvas><button class="pc-arrow l" aria-label="Previous car">&#8249;</button><button class="pc-arrow r" aria-label="Next car">&#8250;</button><div class="pc-plate"></div><div class="pc-credit"></div></div>
         <div class="pc-info">
           <div class="pc-tabs">${ORDER.map(id => `<button class="pc-tab" data-id="${id}"><small>${CARS[id].year}</small><b>${CARS[id].name}</b></button>`).join('')}</div>
           <div class="pc-name"></div><div class="pc-line"></div>
@@ -33248,6 +33392,7 @@ PTX.mods.people = G => {
       $q('.pc-card.s').innerHTML = `<b><em>Special</em>${c.special.name}</b><p>${c.special.text}</p>`;
       $q('.pc-card.g').innerHTML = `<b><em>Gimmick</em>${c.gimmick.name}</b><p>${c.gimmick.text}</p>`;
       $q('.pc-plate').textContent = PLATES[st.id];
+      { const cr = env.PerthCar && env.PerthCar.CREDITS && env.PerthCar.CREDITS[st.id]; $q('.pc-credit').textContent = cr ? '3D model: ' + cr : ''; }
       preview.show(st.id, c.paint);
     }
     const pick = id => { if (!CARS[id] || id === st.id) return; st.id = id; save(st); blip(520); render(); };
@@ -35456,9 +35601,26 @@ body.pbCrash #speedo,body.pbCrash #roadsign,body.pbCrash #map,body.pbCrash #fpsb
       const base = at(F, 2, side * 7.5, 0.05); props.position.copy(base);
       props.rotation.y = Math.atan2(F.f.x, F.f.z) + (side > 0 ? 0 : Math.PI);   // local +z faces along the road
       props.visible = dir === 'fwd' || !!o.partyInRev;
+      groundParty(base.y);
       for (const w of Object.values(props.userData.who)) w.lookAt(new THREE.Vector3(F.c.x, w.getWorldPosition(new THREE.Vector3()).y, F.c.z));
     }
+    // stand everything on the real ground (driveways and lawns at Columba Pl sit higher than the road)
+    const ray = new THREE.Raycaster(), DOWN = new THREE.Vector3(0, -1, 0);
+    function groundY(x, z, y0) {
+      ray.set(new THREE.Vector3(x, y0 + 4, z), DOWN); ray.far = 7; if (mainCam) ray.camera = mainCam;
+      const hits = []; for (const ch of scene.children) { if (ch === props || !ch.visible) continue; try { ray.intersectObject(ch, true, hits); } catch (e) {} }
+      for (const h of hits.sort((a, b) => a.distance - b.distance)) { if (h.object.isSprite || h.object.isPoints || h.object.isLine) continue; const y = h.point.y; if (y > y0 - 1.5 && y < y0 + 2.5) return y; }
+      return null;
+    }
+    function groundParty(y0) {
+      props.updateMatrixWorld(true);
+      const sg = groundY(props.position.x, props.position.z, y0); if (sg != null) { props.position.y = sg + 0.02; props.updateMatrixWorld(true); }
+      const py = props.position.y, kids = props.children.filter(k => k.isGroup || k.isMesh);
+      for (const k of kids) { if (k === props.children[0]) continue; const w = k.getWorldPosition(new THREE.Vector3()), gy = groundY(w.x, w.z, py); if (k.userData.y0 != null) k.position.y = k.userData.y0;
+        k.userData.y0 ??= k.position.y; k.position.y = k.userData.y0 + (gy != null ? Math.max(0, gy - py) : 0); }
+    }
     function partyPoint(name, up = 2.05) { const w = props.userData.who[name]; return w.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, up, 0)); }
+    function toCar(p) { const c = frame().c, d = new THREE.Vector3(c.x - p.x, 0, c.z - p.z); return d.lengthSq() > 1e-6 ? d.normalize() : frame().f.clone().negate(); }
     function spitPoint() { return spit.getWorldPosition(new THREE.Vector3()); }
 
     // ---------------- scripts ----------------
@@ -35484,8 +35646,8 @@ body.pbCrash #speedo,body.pbCrash #roadsign,body.pbCrash #map,body.pbCrash #fpsb
           shot(0, 3, () => ({ p: at(F(), 5.5, -2.2, 0.55), l: at(F(), 0, 0, 0.7) }), () => ({ p: at(F(), 4.6, -3.2, 0.8), l: at(F(), -0.5, 0, 0.8) })),
           shot(3, 6.5, () => { const s = sp(), c = frame(); return { p: s.clone().addScaledVector(c.f, -4.6).add(new THREE.Vector3(0, 1.5, 0)).addScaledVector(c.r, -2.2), l: s.clone().addScaledVector(c.r, 0.8).add(new THREE.Vector3(0, 0.4, 0)) }; },
             () => { const s = sp(), c = frame(); return { p: s.clone().addScaledVector(c.f, -3.4).add(new THREE.Vector3(0, 1.1, 0)).addScaledVector(c.r, -1.2), l: s.clone().addScaledVector(c.r, 0.6).add(new THREE.Vector3(0, 0.3, 0)) }; }),
-          shot(6.5, 9.2, () => { const y = partyPoint('Yiayia', 1.4), c = frame(); return { p: y.clone().addScaledVector(c.f, 3.4).addScaledVector(c.r, -1.8).add(new THREE.Vector3(0, -0.1, 0)), l: y.clone().add(new THREE.Vector3(0, -0.2, 0)) }; },
-            () => { const y = partyPoint('Yiayia', 1.4), c = frame(); return { p: y.clone().addScaledVector(c.f, 2.7).addScaledVector(c.r, -1.2), l: y.clone().add(new THREE.Vector3(0, -0.15, 0)) }; }),
+          shot(6.5, 9.2, () => { const y = partyPoint('Yiayia', 1.4), c = frame(), d = toCar(y); const V = [-1.6, 3.2, 0.1]; return { p: y.clone().addScaledVector(c.f, V[0]).addScaledVector(d, V[1]).add(new THREE.Vector3(0, V[2], 0)), l: y.clone().add(new THREE.Vector3(0, -0.2, 0)) }; },
+            () => { const y = partyPoint('Yiayia', 1.4), c = frame(), d = toCar(y); return { p: y.clone().addScaledVector(c.f, -1.0).addScaledVector(d, 2.4).add(new THREE.Vector3(0, 0.1, 0)), l: y.clone().add(new THREE.Vector3(0, -0.15, 0)) }; }),
           shot(9.2, 12, () => ({ p: at(F(), -6, -3, 2.2), l: at(F(), 2, 4, 0.8) }), () => ({ p: at(F(), -11, -6, 10), l: at(F(), 2, 5, 0) })),
         ] : [
           shot(0, 3.5, () => ({ p: at(F(), 5.5, -2.2, 0.55), l: at(F(), 0, 0, 0.7) }), () => ({ p: at(F(), 4.6, -3.2, 0.8), l: at(F(), -0.5, 0, 0.8) })),
