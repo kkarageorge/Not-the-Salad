@@ -11984,12 +11984,41 @@ LMX.ccgs = function (H) {
   const groundTex = canvasTex(256, (g, S) => { noise(g, S, '#d6d6d6', 0.22, 9000, 2.2); });     // 256 px = 3 m, tinted per vertex (lawn, asphalt, paving)
   const plainTex = canvasTex(64, (g, S) => { noise(g, S, '#f2f2f2', 0.08, 600, 1.5); });
   const leafTex = canvasTex(256, (g, S) => { noise(g, S, '#7f9a55', 0.5, 7000, 6); for (let i = 0; i < 500; i++) { g.fillStyle = rnd() < 0.55 ? 'rgba(25,40,18,.38)' : 'rgba(170,190,110,.28)'; g.beginPath(); g.arc(rnd() * S, rnd() * S, 3 + rnd() * 6, 0, 7); g.fill(); } });
-  const crest = (g, x, y, w) => {   // CCGS crest: white shield, red cross, gold edge, small mitre on top
-    const h = w * 1.2; g.save(); g.translate(x, y);
-    g.fillStyle = '#d6b45c'; g.beginPath(); g.moveTo(w * 0.3, -h * 0.02); g.lineTo(w * 0.5, -h * 0.2); g.lineTo(w * 0.7, -h * 0.02); g.closePath(); g.fill();
-    g.fillStyle = '#f6f2e6'; g.beginPath(); g.moveTo(0, 0); g.lineTo(w, 0); g.lineTo(w, h * 0.55); g.quadraticCurveTo(w, h * 0.9, w / 2, h); g.quadraticCurveTo(0, h * 0.9, 0, h * 0.55); g.closePath(); g.fill();
-    g.strokeStyle = '#d6b45c'; g.lineWidth = Math.max(2, w * 0.06); g.stroke();
-    g.fillStyle = '#b3262a'; g.fillRect(w * 0.42, h * 0.08, w * 0.16, h * 0.78); g.fillRect(w * 0.1, h * 0.3, w * 0.8, h * 0.15); g.restore();
+  // CCGS crest (school logo, from Kostas 5 Nov): navy shield with gold edge, red cross edged white, gold disc with a black swan (top left),
+  // gold 'ix' at the crossing, navy mitre with two gold crosses and a cross finial over a gold ribbon, navy motto scroll 'DEUS DUX DOCTRINA LUX'.
+  // Drawn in logo units (116 x 204) scaled to width w; total height = w * 1.76.
+  const crest = (g, x, y, w) => {
+    const k = w / 116, GOLD = '#e8b829', NAV = '#1c2a5e';
+    g.save(); g.translate(x, y); g.scale(k, k); g.lineJoin = 'round';
+    // finial cross + mitre
+    g.fillStyle = GOLD; g.fillRect(55, 0, 6, 16); g.fillRect(50, 4, 16, 5);
+    g.beginPath(); g.moveTo(40, 60); g.lineTo(40, 30); g.quadraticCurveTo(44, 18, 58, 13); g.quadraticCurveTo(72, 18, 76, 30); g.lineTo(76, 60); g.closePath();
+    g.fillStyle = NAV; g.fill(); g.strokeStyle = GOLD; g.lineWidth = 3; g.stroke();
+    g.beginPath(); g.moveTo(58, 14); g.lineTo(58, 60); g.stroke();
+    g.fillStyle = GOLD; for (const cx of [49, 67]) { g.fillRect(cx - 1.5, 28, 3, 16); g.fillRect(cx - 5, 32, 10, 3); }
+    // gold ribbon under the mitre
+    g.beginPath(); g.moveTo(2, 64); g.quadraticCurveTo(30, 54, 58, 60); g.quadraticCurveTo(86, 54, 114, 64); g.lineTo(114, 68); g.quadraticCurveTo(86, 59, 58, 65); g.quadraticCurveTo(30, 59, 2, 68); g.closePath(); g.fill();
+    // shield
+    const shield = () => { g.beginPath(); g.moveTo(4, 70); g.lineTo(112, 70); g.lineTo(112, 120); g.quadraticCurveTo(110, 160, 58, 182); g.quadraticCurveTo(6, 160, 4, 120); g.closePath(); };
+    shield(); g.fillStyle = NAV; g.fill();
+    g.save(); shield(); g.clip();
+    g.fillStyle = '#ffffff'; g.fillRect(44, 70, 28, 120); g.fillRect(4, 104, 108, 28);
+    g.fillStyle = '#d7262e'; g.fillRect(48, 70, 20, 120); g.fillRect(4, 108, 108, 20);
+    g.restore();
+    shield(); g.strokeStyle = GOLD; g.lineWidth = 5; g.stroke();
+    // gold disc with a black swan
+    g.fillStyle = GOLD; g.beginPath(); g.arc(25, 90, 14, 0, 7); g.fill();
+    g.fillStyle = '#111'; g.beginPath(); g.ellipse(27, 95, 8, 4.5, 0, 0, 7); g.fill();
+    g.lineWidth = 3; g.strokeStyle = '#111'; g.beginPath(); g.moveTo(21, 94); g.quadraticCurveTo(15, 86, 19, 81); g.stroke();
+    g.fillStyle = '#d7262e'; g.fillRect(17, 80, 4, 2.5);
+    // gold 'ix' at the crossing
+    g.fillStyle = GOLD; g.fillRect(52, 99, 3, 9); g.fillRect(52, 95, 3, 2.5);
+    g.lineWidth = 3; g.strokeStyle = GOLD; g.beginPath(); g.moveTo(59, 112); g.lineTo(67, 124); g.moveTo(67, 112); g.lineTo(59, 124); g.stroke();
+    // motto scroll
+    g.beginPath(); g.moveTo(8, 184); g.quadraticCurveTo(58, 194, 108, 184); g.lineTo(110, 200); g.quadraticCurveTo(58, 210, 6, 200); g.closePath();
+    g.fillStyle = NAV; g.fill(); g.strokeStyle = GOLD; g.lineWidth = 2.5; g.stroke();
+    g.fillStyle = GOLD; g.font = 'bold 9px Georgia, serif'; g.textAlign = 'center'; g.fillText('DEUS DUX DOCTRINA LUX', 58, 199);
+    g.restore();
   };
   // T Block text atlas: rows 0-127 banner 'Building the inner man' (stretched over ~19.5 x 1.7 m), rows 128-255 name band (~12.5 x 1.7 m)
   // T Block text atlas: rows 0-127 navy band 'Building the inner man' (stretched over ~19.7 x 1.5 m); x 0-127 rows 128-255 crest on navy (1.5 x 1.6 m)
@@ -11997,14 +12026,14 @@ LMX.ccgs = function (H) {
     g.fillStyle = '#1b2850'; g.fillRect(0, 0, S, 256);
     g.save(); g.scale(0.31, 1); g.fillStyle = '#f1e8cc'; g.font = 'italic 600 80px Georgia, serif'; g.textAlign = 'center'; g.fillText('Building the inner man', 826, 90); g.restore();
     g.fillStyle = '#c9a957'; g.fillRect(0, 4, S, 2); g.fillRect(0, 122, S, 2);
-    crest(g, 22, 144, 84);
+    crest(g, 32, 137, 64);
     g.fillStyle = '#e9dfc8'; g.fillRect(0, 256, S, 256);
   }, false);
   // frontage atlas: x 0-127, y 0-383 = navy totem sign face (1.3 x 3.9 m); rows 384-511 = black palisade (alpha), repeats along u
   const fTextTex = canvasTex(512, (g, S) => {
     g.clearRect(0, 0, S, S);
     g.fillStyle = '#1d2a4a'; g.fillRect(0, 0, 128, 384); g.fillStyle = '#c9a957'; g.fillRect(6, 6, 116, 3); g.fillRect(6, 375, 116, 3);
-    crest(g, 30, 30, 68);
+    crest(g, 36, 16, 56);
     g.fillStyle = '#f2ecdc'; g.textAlign = 'center'; g.font = '600 21px Georgia, serif';
     ['CHRIST', 'CHURCH', 'GRAMMAR', 'SCHOOL'].forEach((w, i) => g.fillText(w, 64, 160 + i * 30));
     g.fillStyle = '#d9b85e'; g.font = 'italic 15px Georgia, serif'; g.fillText('Founded 1910', 64, 300);
@@ -12101,25 +12130,30 @@ LMX.ccgs = function (H) {
       gridWall(a, b, 0, HB, n, L / k, HB, 0, 0.5); panelWall(a, b, -0.7, 0, n); }
     prismWalls(T.plain, offsetPoly(B, 0.12), HB, HB + 0.35, [0.8, 0.74, 0.66], 0, 0, 0);   // capping
     cap(T.plain, B, HB + 0.05, [0.32, 0.33, 0.35]);
-    // raised gable roof light at the east end (ridge running E-W), east gable triangle in panels with a glazed half
-    { const g0 = loc(LL(-31.984859, 115.77788)), g1 = loc(LL(-31.984859, 115.7780967)), g2 = loc(LL(-31.984941, 115.7780969)), g3 = loc(LL(-31.984941, 115.77788));
-      const yR = HB + 2.8, m01 = g0.clone().lerp(g3, 0.5), m12 = g1.clone().lerp(g2, 0.5);
-      prismWalls(T.plain, [g0, g1, g2, g3], HB, HB + 0.6, [0.85, 0.77, 0.67], 0, 0, 0);
-      const y1 = HB + 0.6, tri = (a, b, c, col) => { const q = [[a.x, a.h, a.y], [b.x, b.h, b.y], [c.x, c.h, c.y]]; const tr = new V3(q[1][0] - q[0][0], q[1][1] - q[0][1], q[1][2] - q[0][2]).cross(new V3(q[2][0] - q[0][0], q[2][1] - q[0][1], q[2][2] - q[0][2]));
-        triList(T.plain, q, col, false); triList(T.plain, [q[0], q[2], q[1]], col, false); };
+    // pitched roof along the whole bar (ridge running E-W down the middle, as the aerial shows), hidden eaves behind the capping,
+    // triangular gable ends: the east one faces Queenslea Dr above the wing's east wall line, with a glazed triangle in its north half (Street View)
+    const RISE = 3.4;
+    { const g0 = loc(LL(-31.984753, 115.77745)), g1 = loc(LL(-31.984753, 115.77802)), g2 = loc(LL(-31.984941, 115.77802)), g3 = loc(LL(-31.984941, 115.77745));
+      const y1 = HB + 0.25, yR = y1 + RISE, m01 = g0.clone().lerp(g3, 0.5), m12 = g1.clone().lerp(g2, 0.5);
+      const tri = (a, b, c, col) => { const q = [[a.x, a.h, a.y], [b.x, b.h, b.y], [c.x, c.h, c.y]]; triList(T.plain, q, col, false); triList(T.plain, [q[0], q[2], q[1]], col, false); };
       const h = (p, y) => Object.assign(p.clone(), { h: y });
-      tri(h(g1, y1), h(g2, y1), h(m12, yR), [0.84, 0.75, 0.65]); tri(h(g0, y1), h(g3, y1), h(m01, yR), [0.84, 0.75, 0.65]);
-      // glazed north half of the east gable (inset triangle)
-      { const nn = outN([g0, g1, g2, g3], 1).multiplyScalar(0.06), a = g1.clone().add(nn).lerp(m12, 0.12), c = m12.clone().add(nn);
-        tri(h(a, y1 + 0.35), h(c, y1 + 0.35), h(c.clone().lerp(a, 0.05), yR - 0.45), [0.16, 0.2, 0.25]); }
-      // the two roof slopes (metal deck, mid grey)
-      for (const [a, b] of [[g0, g1], [g3, g2]]) { const ma = a === g0 ? m01 : m01, mb = m12;
-        tri(h(a, y1), h(b, y1), h(mb, yR), [0.55, 0.56, 0.57]); tri(h(a, y1), h(mb, yR), h(ma, yR), [0.55, 0.56, 0.57]); } }
-    // solar panels on the bar roof (rows of dark blue modules, tilted a little to the north)
-    { const s0 = loc(LL(-31.98479, 115.77748)), s1 = loc(LL(-31.98479, 115.77792)), dS = new V2().subVectors(loc(LL(-31.98491, 115.77748)), s0);
-      const L = s0.distanceTo(s1), yaw = Math.atan2(-(s1.y - s0.y), s1.x - s0.x);
-      for (let r = 0; r < 4; r++) { const p = s0.clone().lerp(s1, 0.5).add(dS.clone().multiplyScalar(r / 3.2));
-        add(T.plain, new THREE.BoxGeometry(L, 0.08, 1.9), M4(p.x, HB + 0.5, p.y, yaw, 0, 0.0).multiply(M4(0, 0, 0, 0, -0.17)), [0.1, 0.13, 0.22]); } }
+      // gable end walls (panel colour) with a thin capping on the rakes
+      tri(h(g1, y1), h(g2, y1), h(m12, yR), [0.86, 0.77, 0.67]); tri(h(g0, y1), h(g3, y1), h(m01, yR), [0.86, 0.77, 0.67]);
+      for (const [e0, e1, mm] of [[g1, g2, m12], [g0, g3, m01]]) for (const e of [e0, e1]) { const d = new V2().subVectors(mm, e), L = Math.hypot(d.length(), RISE), c = e.clone().lerp(mm, 0.5);
+        add(T.plain, new THREE.BoxGeometry(0.35, 0.3, L), M4(c.x, (y1 + yR) / 2 + 0.1, c.y, Math.atan2(d.x, d.y), -Math.atan2(RISE, d.length())), [0.8, 0.74, 0.66]); }
+      // glazed triangle in the north half of the east gable
+      { const nn = outN([g0, g1, g2, g3], 1).multiplyScalar(0.05), a = g1.clone().add(nn).lerp(m12, 0.15), c = m12.clone().add(nn).lerp(g1, 0.08);
+        tri(h(a, y1 + 0.3), h(c, y1 + 0.3), h(c, yR - 0.5), [0.16, 0.2, 0.25]); }
+      // roof slopes (dark grey metal deck)
+      tri(h(g0, y1), h(g1, y1), h(m12, yR), [0.36, 0.37, 0.39]); tri(h(g0, y1), h(m12, yR), h(m01, yR), [0.36, 0.37, 0.39]);
+      tri(h(g3, y1), h(g2, y1), h(m12, yR), [0.33, 0.34, 0.36]); tri(h(g3, y1), h(m12, yR), h(m01, yR), [0.33, 0.34, 0.36]);
+      add(T.plain, new THREE.BoxGeometry(0.3, 0.12, m01.distanceTo(m12)), M4(m01.clone().lerp(m12, 0.5).x, yR + 0.04, m01.clone().lerp(m12, 0.5).y, Math.atan2(m12.x - m01.x, m12.y - m01.y)), [0.55, 0.56, 0.57]);   // ridge cap
+      // solar panels in rows on both slopes (aerial), lying on the slope
+      const half = g0.distanceTo(g3) / 2, ang = Math.atan2(RISE, half), yawE = Math.atan2(-(g1.y - g0.y), g1.x - g0.x);
+      for (const [e0, e1, sgn, runs] of [[g0, g1, 1, [[0.05, 0.45], [0.55, 0.92]]], [g3, g2, -1, [[0.05, 0.4], [0.6, 0.95]]]]) for (const dd of [2.2, 5.6]) for (const [f0, f1] of runs) {
+        const t = dd / half, pa = e0.clone().lerp(e1, f0), pb = e0.clone().lerp(e1, f1), mA = e0 === g0 ? m01 : m01, mm = pa.clone().lerp(pb, 0.5), into = new V2().subVectors(m01.clone().lerp(m12, (f0 + f1) / 2), e0.clone().lerp(e1, (f0 + f1) / 2)).normalize();
+        const p = mm.clone().add(into.clone().multiplyScalar(dd));
+        add(T.plain, new THREE.BoxGeometry(pa.distanceTo(pb), 0.07, 2.6), M4(p.x, y1 + RISE * t + 0.1, p.y, yawE).multiply(M4(0, 0, 0, 0, -sgn * ang)), [0.1, 0.13, 0.22]); } }
     // ---- the corner wing (P0, P1, A, P7), 10.2 m
     const WG = [P[0], P[1], A, P[7]];
     const IN = 1.9;                                                                                 // recess of the glazing behind the frame
@@ -31129,14 +31163,14 @@ PTX.mods.people = G => {
     lancer: () => {
       L = 4.57; Z0 = -L / 2; AXLE_F = -1.33; AXLE_R = 1.32; TRACK_F = TRACK_R = 0.76; WR = 0.325;
       deckC = curve([[0, 0.60], [0.012, 0.69], [0.03, 0.745], [0.08, 0.78], [0.18, 0.815], [0.27, 0.848], [0.335, 0.878], [0.45, 0.92], [0.6, 0.955], [0.75, 0.99], [0.86, 1.025], [0.93, 1.045], [0.965, 1.045], [0.985, 1.03], [0.995, 1.0], [1, 0.95]]);
-      roofC = curve([[0.33, 0.84], [0.355, 0.94], [0.40, 1.09], [0.45, 1.24], [0.50, 1.36], [0.555, 1.44], [0.61, 1.47], [0.68, 1.47], [0.74, 1.45], [0.79, 1.39], [0.83, 1.29], [0.86, 1.18], [0.885, 1.09], [0.905, 1.04], [0.915, 1.01]]);
+      roofC = curve([[0.285, 0.84], [0.31, 0.94], [0.355, 1.09], [0.405, 1.24], [0.455, 1.36], [0.515, 1.44], [0.58, 1.47], [0.68, 1.47], [0.74, 1.45], [0.79, 1.39], [0.83, 1.29], [0.86, 1.18], [0.885, 1.09], [0.905, 1.04], [0.915, 1.01]]);
       lowC = curve([[0, 0.46], [0.05, 0.42], [0.09, 0.36], [0.14, 0.32], [0.86, 0.32], [0.92, 0.36], [0.96, 0.42], [1, 0.46]]);
       hwOf = t => 0.88 - 0.10 * Math.pow(1 - sm(0, 0.2, t), 2) - 0.035 * Math.pow(sm(0.87, 1, t), 2) + 0.012 * bump(t, tOf(AXLE_F), 0.085) + 0.015 * bump(t, tOf(AXLE_R), 0.10);
       cabinW = t => 0.74 - 0.05 * sm(0.70, 0.95, t) - 0.03 * (1 - sm(0.34, 0.5, t));
-      roofAt = t => (t < 0.33 || t > 0.915) ? -1 : roofC(t);
-      WS = [0.35, 0.50]; RWIN = [0.775, 0.89]; SIDEWIN = [0.405, 0.835]; BONNET = [0.045, 0.335];
-      ARCHES = [[AXLE_F, 0.415], [AXLE_R, 0.425]]; PILLARS = [[0.612, 0.628]]; FRONT_T = 0.37;
-      return { id: 'lancer', height: 1.47, box: [0.96, 0.64, 2.24], boxC: 0.62, eye: 1.15, mirrorT: 0.405, handles: [0.585], shut: [[0.395, 1, 7], [0.62, 1, 7], [0.815, 2, 7]],
+      roofAt = t => (t < 0.285 || t > 0.915) ? -1 : roofC(t);
+      WS = [0.305, 0.455]; RWIN = [0.775, 0.89]; SIDEWIN = [0.37, 0.835]; BONNET = [0.045, 0.29];   // Kostas 15:07: bonnet was too long, cowl moved 20 cm forward
+      ARCHES = [[AXLE_F, 0.415], [AXLE_R, 0.425]]; PILLARS = [[0.612, 0.628]]; FRONT_T = 0.33;
+      return { id: 'lancer', height: 1.47, box: [0.96, 0.64, 2.24], boxC: 0.62, eye: 1.15, mirrorT: 0.37, handles: [0.585], shut: [[0.36, 1, 7], [0.62, 1, 7], [0.815, 2, 7]],
         rimR: 0.236, tyreW: 0.124, engY: 0, cam: 0xb02a20, lean: 1 };
     },
     nova: () => {
@@ -31428,8 +31462,8 @@ PTX.mods.people = G => {
         ? { zA: Z0 + 0.50, depth: 0.51, e: 2 / 2.8, mats: [paint, trim],
             prof: [[0.15, -0.03, 1], [0.16, 0.03, 1], [0.18, 0.032, 1], [0.205, 0.012, 0], [0.25, 0.016, 0], [0.30, 0.02, 0], [0.36, 0.024, 0], [0.42, 0.026, 0], [0.48, 0.026, 0], [0.54, 0.024, 0], [0.59, 0.018, 0], [0.63, 0.008, 0], [0.655, -0.005, 0], [0.665, -0.035, 0]],
             zone: (x, y) => (y > 0.205 && y < 0.66 && Math.abs(x) < gHalf(y)) ? [1, -0.035] : (y > 0.235 && y < 0.33 && Math.abs(x) > 0.58 && Math.abs(x) < 0.76) ? [1, -0.02] : null }
-        : { zA: -Z0 - 0.30, depth: 0.295, e: 0.3, mats: [paint, trim],
-            prof: [[0.20, -0.05, 1], [0.215, -0.004, 1], [0.25, 0.003, 1], [0.29, 0.005, 1], [0.34, 0.007, 0], [0.45, 0.008, 0], [0.55, 0.005, 0], [0.62, 0.0, 0], [0.66, -0.025, 0]],
+        : { zA: -Z0 - 0.30, depth: 0.312, e: 0.3, mats: [paint, trim],
+            prof: [[0.20, -0.05, 1], [0.215, -0.004, 1], [0.25, 0.003, 1], [0.29, 0.005, 1], [0.34, 0.007, 0], [0.45, 0.008, 0], [0.55, 0.007, 0], [0.65, 0.005, 0], [0.70, 0.0, 0], [0.728, -0.03, 0]],
             zone: (x, y) => y < 0.30 ? [1, 0] : null };
     }
     const bumpF = bumper(true), bumpR = bumper(false);
@@ -31531,6 +31565,43 @@ PTX.mods.people = G => {
     const amberM = new THREE.MeshStandardMaterial({ color: 0xc87010, emissive: 0xff8a10, emissiveIntensity: 0.25, roughness: 0.25, toneMapped: false });
     const lensM = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.02, transparent: true, opacity: 0.2, clearcoat: 1, depthWrite: false });
     const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x || 0, y || 0, z || 0); return b; };
+    // ---- tail lamps that sit ON the body and wrap round the rear corner (Kostas 15:08: "spend time on the back lights")
+    // A lamp is drawn as flat polygons in (a, y): a >= 0 runs inward across the tail from the rear corner, a < 0 runs forward along the flank.
+    // Each point is projected onto the body (the tail face, or the sloping top of the tail, then the flank) and lifted 'off' metres outward.
+    tailM.side = THREE.DoubleSide; revM.side = THREE.DoubleSide; amberM.side = THREE.DoubleSide;
+    const lampDarkM = new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide });
+    const lampClearM = new THREE.MeshStandardMaterial({ color: 0xc9ccd0, metalness: 0.7, roughness: 0.12, side: THREE.DoubleSide });
+    const lampSmokeM = new THREE.MeshPhysicalMaterial({ color: 0x3a090d, roughness: 0.12, metalness: 0.2, clearcoat: 1, side: THREE.DoubleSide });
+    const rearZ = y => { if (y <= deckC(1)) return -Z0; let t = 1; while (t > 0.85 && deckC(t) < y) t -= 0.0015; return Z0 + t * L; };
+    const sideXAt = (t, y) => { const P = section(clamp(t, 0, 1)).P; let x = P[0][0]; for (let k = 0; k < 6; k++) { const a = P[k], b = P[k + 1]; if (y >= a[1] && y <= b[1]) return a[0] + (b[0] - a[0]) * (y - a[1]) / Math.max(1e-4, b[1] - a[1]); if (y > b[1]) x = b[0]; } return x; };
+    const lampPt = (sx, a, y, off) => { const z0 = rearZ(y);
+      if (a >= 0) { const cx = sideXAt(tOf(z0), y); return new V3(sx * Math.max(0.02, cx - 0.004 - a), y, z0 + off); }
+      const z = z0 + a; return new V3(sx * (sideXAt(tOf(z), y) + off), y, z); };
+    function lampPoly(sx, poly, mat, off) {
+      // triangulate in (a, y), split the triangles small so they follow the body round the corner, then project
+      const tris = [], v2 = poly.map(p => new THREE.Vector2(p[0], p[1]));
+      for (const [i, j, k] of THREE.ShapeUtils.triangulateShape(v2, [])) tris.push([poly[i], poly[j], poly[k]]);
+      const out = [], mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+      while (tris.length) { const [a, b, c] = tris.pop(); const e = Math.max(Math.hypot(a[0] - b[0], a[1] - b[1]), Math.hypot(b[0] - c[0], b[1] - c[1]), Math.hypot(c[0] - a[0], c[1] - a[1]));
+        if (e < 0.03 || tris.length + out.length > 4000) { out.push(a, b, c); continue; }
+        const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a); tris.push([a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]); }
+      const pos = []; for (const q of out) { const v = lampPt(sx, q[0], q[1], off); pos.push(v.x, v.y, v.z); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+      const ca = poly.reduce((q, p) => q + p[0], 0) / poly.length, cy = poly.reduce((q, p) => q + p[1], 0) / poly.length;
+      const m = new THREE.Mesh(g, mat); m.userData.centre = lampPt(sx, ca, cy, off); return m;
+    }
+    const rectP = (a0, a1, y0, y1) => [[a0, y0], [a1, y0], [a1, y1], [a0, y1]];
+    const circP = (a, y, r) => Array.from({ length: 16 }, (_, k) => [a + r * Math.cos(k / 16 * Math.PI * 2), y + r * Math.sin(k / 16 * Math.PI * 2)]);
+    // spec: { housing: poly, layers: [[poly, mat, isTail]], rev: poly }
+    function tailLamp(sx, spec) {
+      const g = new THREE.Group(); g.name = 'tailLamp';
+      g.add(lampPoly(sx, spec.housing, spec.housingM || lampDarkM, 0.006));
+      const parts = []; let off = 0.011;
+      for (const [poly, mat, isTail] of spec.layers) { const m = lampPoly(sx, poly, mat, off); g.add(m); if (isTail) parts.push(m); off += 0.003; }
+      const bulb = lampPoly(sx, spec.rev, revM, off + 0.002); g.add(bulb);
+      upper.add(g); const at = g.children[0].userData.centre.clone();
+      lamps.tail.push({ g, side: sx, broken: false, parts, at }); lamps.rev.push(bulb);
+    }
     if (MD.id === 'nova') {
       // 1990s flush rectangular headlights with amber corner indicators, a slatted grille between them
       for (const sx of [-1, 1]) {
@@ -31551,16 +31622,15 @@ PTX.mods.people = G => {
         for (let k = 0; k < 4; k++) parts.push([new THREE.BoxGeometry(0.42, 0.008, 0.012), 0x9a9ea4, new THREE.Matrix4().makeRotationX(0.16).setPosition(0, 0.557 + k * 0.019, Z0 - 0.01 + k * 0.003)]);
         const m = new THREE.Mesh(mergeColoured(THREE, parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.4 })); m.name = 'grille'; upper.add(m);
       }
-      // tail: wide horizontal clusters on the tail panel, red outside, amber, then a clear reversing lamp
-      for (const sx of [-1, 1]) {
-        const g = new THREE.Group(); g.position.set(sx * 0.53, 0.59, -Z0 + 0.004); g.rotation.y = sx * 0.10;
-        g.add(box(0.47, 0.16, 0.03, headHousingM, 0, 0, -0.008));
-        const red = box(0.26, 0.14, 0.03, tailM, sx * 0.095, 0, 0); g.add(red);
-        g.add(box(0.10, 0.14, 0.031, amberM, -sx * 0.09, 0, 0));
-        const clr = box(0.08, 0.14, 0.031, new THREE.MeshStandardMaterial({ color: 0xc9ccd0, metalness: 0.6, roughness: 0.15 }), -sx * 0.185, 0, 0); g.add(clr);
-        const bulb = box(0.05, 0.05, 0.012, revM, -sx * 0.185, 0, 0.018); g.add(bulb);
-        upper.add(g); lamps.tail.push({ g, side: sx, broken: false, parts: [red], at: new V3(sx * 0.53, 0.59, -Z0) }); lamps.rev.push(bulb);
-      }
+      // tail: wide horizontal clusters across the tail panel just above the bumper, wrapping a few cm onto the flanks:
+      // red outer two-thirds with fine horizontal ribs, an amber band, then a clear reversing section by the number plate
+      for (const sx of [-1, 1]) tailLamp(sx, {
+        housing: [[-0.075, 0.512], [0.50, 0.512], [0.50, 0.655], [0.485, 0.668], [-0.075, 0.668]],
+        layers: [[[[-0.07, 0.518], [0.29, 0.518], [0.29, 0.662], [-0.07, 0.662]], tailM, true],
+          [rectP(0.296, 0.385, 0.518, 0.662), amberM],
+          [[[0.391, 0.518], [0.494, 0.518], [0.494, 0.652], [0.482, 0.662], [0.391, 0.662]], lampClearM],
+          [rectP(-0.07, 0.29, 0.566, 0.570), lampDarkM], [rectP(-0.07, 0.29, 0.612, 0.616), lampDarkM]],
+        rev: rectP(0.405, 0.48, 0.535, 0.585) });
       lamps.bar = null;
     } else if (MD.id === 'ix3') {
       // slim LED headlights with twin light rings, tucked up against the big closed kidney grille
@@ -31590,15 +31660,16 @@ PTX.mods.people = G => {
         }
         const m = new THREE.Mesh(mergeColoured(THREE, parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.6, side: THREE.DoubleSide })); m.name = 'grille'; upper.add(m);
       }
-      // tail: slim three-dimensional L-shaped lamps that wrap round onto the flanks
-      for (const sx of [-1, 1]) {
-        const g = new THREE.Group(); g.position.set(sx * 0.64, 1.04, -Z0 - 0.03); g.rotation.y = sx * 0.34;
-        g.add(box(0.54, 0.16, 0.04, headHousingM, 0, 0, -0.01));
-        const a = box(0.48, 0.04, 0.03, tailM, -sx * 0.02, 0.045, 0.006), b = box(0.04, 0.12, 0.03, tailM, sx * 0.22, -0.01, 0.006), c = box(0.36, 0.025, 0.03, tailM, -sx * 0.05, -0.045, 0.006);
-        g.add(a, b, c);
-        const bulb = box(0.06, 0.03, 0.012, revM, -sx * 0.15, -0.01, 0.02); g.add(bulb);
-        upper.add(g); lamps.tail.push({ g, side: sx, broken: false, parts: [a, b, c], at: new V3(sx * 0.64, 1.04, -Z0) }); lamps.rev.push(bulb);
-      }
+      // tail: slim smoked lamps that wrap round onto the flanks, lit by red L-shaped light guides (a long bar along the top
+      // that turns down at the corner, and a shorter bar below it), with a small reversing lamp at the inner end
+      for (const sx of [-1, 1]) tailLamp(sx, {
+        housing: [[-0.28, 1.03], [-0.25, 1.115], [0.40, 1.115], [0.45, 1.08], [0.36, 0.99], [-0.08, 0.985]], housingM: lampSmokeM,
+        layers: [[[[-0.24, 1.088], [0.39, 1.088], [0.405, 1.104], [-0.235, 1.104]], tailM, true],
+          [rectP(0.0, 0.03, 1.01, 1.095), tailM, true],
+          [[[-0.21, 1.03], [-0.005, 1.03], [-0.005, 1.046], [-0.21, 1.052]], tailM, true],
+          [[[0.035, 1.012], [0.30, 1.012], [0.30, 1.028], [0.035, 1.028]], tailM, true],
+          [[[0.035, 1.05], [0.36, 1.05], [0.37, 1.062], [0.035, 1.062]], tailM, true]],
+        rev: [[0.32, 1.0], [0.36, 1.0], [0.40, 1.04], [0.32, 1.04]] });
       lamps.bar = null;
     } else {
     for (const sx of [-1, 1]) {
@@ -31615,18 +31686,14 @@ PTX.mods.people = G => {
       lamps.head.push({ g, side: sx, broken: false, parts: [proj, proj2, drl], at: new V3(sx * (hw - 0.24), 0.685, Z0 + 0.12) });
     }
     {
-      // tail: big wrap-around corner clusters, red with a clear inner section and a round lamp
-      const y = 0.90, z = -Z0 + 0.005;
-      const clearM = new THREE.MeshStandardMaterial({ color: 0xc9ccd0, metalness: 0.6, roughness: 0.15 });
-      for (const sx of [-1, 1]) {
-        const g = new THREE.Group(); g.position.set(sx * 0.55, y, z - 0.02); g.rotation.y = sx * 0.30;
-        const ring = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.18, 0.03), headHousingM); ring.position.z = -0.006; g.add(ring);
-        const blk = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.155, 0.03), tailM); g.add(blk);
-        const clr = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.11, 0.032), clearM); clr.position.set(-sx * 0.13, -0.005, 0.002); g.add(clr);
-        const bulb = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.012, 14).rotateX(Math.PI / 2), revM); bulb.position.set(-sx * 0.13, -0.005, 0.02); g.add(bulb);
-        upper.add(g); lamps.tail.push({ g, side: sx, broken: false, parts: [blk], at: new V3(sx * 0.58, y, z) });
-        lamps.rev.push(bulb);
-      }
+      // tail: big wrap-around clusters following the boot line: a long red point running forward along the flank,
+      // a red outer block on the tail, and a chrome inner section with a round reversing lamp
+      for (const sx of [-1, 1]) tailLamp(sx, {
+        housing: [[-0.34, 0.925], [-0.30, 0.948], [0.0, 0.95], [0.40, 0.95], [0.36, 0.80], [0.0, 0.80], [-0.18, 0.86]],
+        layers: [[[[-0.33, 0.925], [-0.29, 0.942], [0.0, 0.944], [0.215, 0.944], [0.215, 0.806], [0.0, 0.806], [-0.175, 0.863]], tailM, true],
+          [[[0.222, 0.806], [0.357, 0.806], [0.392, 0.944], [0.222, 0.944]], lampClearM],
+          [circP(0.30, 0.875, 0.048), tailM, true]],
+        rev: circP(0.30, 0.875, 0.03) });
       lamps.bar = null;
     }
     }   // end lancer lamps
@@ -31666,6 +31733,12 @@ PTX.mods.people = G => {
       parts.push([fg, 0x101114, new THREE.Matrix4().makeTranslation(0, roofC(0.86) - 0.005, Z0 + 0.86 * L)]);
       const m = new THREE.Mesh(mergeColoured(THREE, parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.5 })); m.name = 'ix3Trim'; upper.add(m);
     }
+    // number plates (blank, no text) between the tail lamps
+    { const py = { nova: 0.59, lancer: 0.865, ix3: 1.0 }[MD.id], pz = rearZ(py) + 0.012, parts = [];
+      parts.push([new THREE.BoxGeometry(0.40, 0.15, 0.012), 0x141518, new THREE.Matrix4().makeTranslation(0, py, pz - 0.006)]);
+      parts.push([new THREE.BoxGeometry(0.37, 0.125, 0.008), 0xe6e2d2, new THREE.Matrix4().makeTranslation(0, py, pz)]);
+      parts.push([new THREE.BoxGeometry(0.35, 0.006, 0.004), 0x2a2c30, new THREE.Matrix4().makeTranslation(0, py + 0.05, pz + 0.004)]);
+      const m = new THREE.Mesh(mergeColoured(THREE, parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5 })); m.name = 'plate'; upper.add(m); }
     // glow sprites (additive, cheap) and the light pool on the road ahead
     const glowTex = radialTex(THREE, [[0, 'rgba(255,255,255,1)'], [0.18, 'rgba(255,255,255,0.75)'], [0.45, 'rgba(255,255,255,0.18)'], [1, 'rgba(255,255,255,0)']]);
     const mkGlow = (col, s) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false, fog: false })); sp.scale.set(s, s, 1); sp.renderOrder = 3; return sp; };
