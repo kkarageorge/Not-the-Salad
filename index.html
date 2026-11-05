@@ -11944,12 +11944,24 @@ LMX.ccgs = function (H) {
     const det = e.x * n.y - e.y * n.x, dx = p.x - RA.x, dz = p.y - RA.y; return [-31.984369 + (e.x * dz - e.y * dx) / det, 115.777859 + (dx * n.y - dz * n.x) / det]; };
 
   // ---------------------------------------------------------------- textures (canvas, <= 512 px)
-  const facadeTex = canvasTex(256, (g, S) => {   // T Block: 256 px = 6 m wide x one 3.8 m storey; glazing 1.0-3.2 m with 1.5 m mullions
-    g.fillStyle = '#e9dfc8'; g.fillRect(0, 0, S, S); noise(g, S, 'rgba(0,0,0,0)', 0.06, 2500, 2);
-    const y0 = S - Math.round(3.2 / 3.8 * S), y1 = S - Math.round(1.0 / 3.8 * S);
-    const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, '#41535f'); gr.addColorStop(0.45, '#2a3640'); gr.addColorStop(1, '#222c34'); g.fillStyle = gr; g.fillRect(0, y0, S, y1 - y0);
-    g.fillStyle = '#b9b5ab'; for (let x = 0; x < S; x += 64) g.fillRect(x, y0, 4, y1 - y0); g.fillRect(0, y0 + 26, S, 3);
-    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, y1, S, 5); g.fillStyle = '#d8cdb3'; g.fillRect(0, y1 + 5, S, 4);   // sill
+  // T Block atlas, 512 px: left half = one 6 m bay of the bar x 8.4 m (glazed ground floor between panel piers, ribbon window upstairs);
+  // right half = plain stone-look precast panels, 4.8 x 4.8 m (1.2 m courses, 2.4 m wide, staggered). Pinkish beige like the photos.
+  const facadeTex = canvasTex(512, (g, S) => {
+    const H = S, px = m => Math.round(H - m / 8.4 * H), BEIGE = '#dcc9b1';
+    const panels = (x0, w, rows, cols, stag) => { g.fillStyle = BEIGE; g.fillRect(x0, 0, w, H);
+      for (let r = 0; r < rows; r++) for (let c = -1; c < cols + 1; c++) { const ph = H / rows, pw = w / cols, xo = (stag && r % 2) ? pw / 2 : 0, l = 80 + rnd() * 5;
+        g.fillStyle = `hsl(32,${22 + rnd() * 8}%,${l}%)`; g.fillRect(x0 + c * pw + xo + 1, r * ph + 1, pw - 2, ph - 2); }
+      g.save(); g.beginPath(); g.rect(x0, 0, w, H); g.clip(); for (let i = 0; i < 1800; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(120,90,60,.07)' : 'rgba(255,250,240,.08)'; g.fillRect(x0 + rnd() * w, rnd() * H, 2 + rnd() * 3, 1 + rnd() * 2); } g.restore(); };
+    panels(0, 256, 7, 2, true); panels(256, 256, 4, 2, true);
+    // bar bay: ground-floor glazing 0.3-3.3 m between 0.9 m piers (pier at each bay edge), mullion in the middle, transom
+    const gl = (x0, x1, y0, y1) => { const gr = g.createLinearGradient(0, px(y1), 0, px(y0)); gr.addColorStop(0, '#46576a'); gr.addColorStop(0.5, '#2b3744'); gr.addColorStop(1, '#202a33'); g.fillStyle = gr; g.fillRect(x0, px(y1), x1 - x0, px(y0) - px(y1)); };
+    const pier = 0.45 / 6 * 256; gl(pier, 256 - pier, 0.3, 3.3);
+    g.fillStyle = '#9ea3a6'; g.fillRect(126, px(3.3), 4, px(0.3) - px(3.3)); g.fillRect(pier, px(2.5), 256 - 2 * pier, 3); g.fillRect(pier, px(3.3), 256 - 2 * pier, 3);
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(pier, px(0.3), 256 - 2 * pier, 4);
+    // ribbon window 4.9-7.0 m, mullions every 1.5 m; a couple of panes with white blinds down
+    gl(0, 256, 4.9, 7.0); g.fillStyle = '#9ea3a6'; for (let x = 0; x <= 256; x += 64) g.fillRect(x - 2, px(7.0), 4, px(4.9) - px(7.0));
+    g.fillStyle = 'rgba(235,235,230,.85)'; g.fillRect(66, px(7.0) + 3, 60, (px(4.9) - px(7.0)) * 0.55); g.fillRect(194, px(7.0) + 3, 60, (px(4.9) - px(7.0)) * 0.3);
+    g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(0, px(4.9), 256, 4); g.fillStyle = '#e8dccb'; g.fillRect(0, px(4.9) + 4, 256, 3);
   });
   const stripeTex = canvasTex(256, (g, S) => {   // V Block cladding: 256 px = 8 m; 0.5 m panels alternating sand / light grey with a few darker ones
     const cols = ['#ece3cc', '#b9bec1', '#e4d8bc', '#9fa5a9', '#f0e9d6', '#c7cbcd', '#7c8286', '#e2d6b8'];
@@ -11973,12 +11985,12 @@ LMX.ccgs = function (H) {
     g.fillStyle = '#b3262a'; g.fillRect(w * 0.42, h * 0.08, w * 0.16, h * 0.78); g.fillRect(w * 0.1, h * 0.3, w * 0.8, h * 0.15); g.restore();
   };
   // T Block text atlas: rows 0-127 banner 'Building the inner man' (stretched over ~19.5 x 1.7 m), rows 128-255 name band (~12.5 x 1.7 m)
+  // T Block text atlas: rows 0-127 navy band 'Building the inner man' (stretched over ~19.7 x 1.5 m); x 0-127 rows 128-255 crest on navy (1.5 x 1.6 m)
   const tTextTex = canvasTex(512, (g, S) => {
-    g.fillStyle = '#1d2a4a'; g.fillRect(0, 0, S, 256);
-    g.save(); g.scale(0.34, 1); crest(g, 70, 14, 78); g.fillStyle = '#d9b85e'; g.font = 'italic 600 84px Georgia, serif'; g.textAlign = 'left'; g.fillText('Building the inner man', 240, 94); g.restore();
-    g.fillStyle = '#c9a957'; g.fillRect(0, 2, S, 3); g.fillRect(0, 123, S, 3);
-    g.save(); g.scale(0.5, 1); crest(g, 30, 142, 70); g.fillStyle = '#f2ecdc'; g.font = '600 50px Georgia, serif'; g.textAlign = 'left'; g.fillText('CHRIST CHURCH GRAMMAR SCHOOL', 150, 214); g.restore();
-    g.fillStyle = '#c9a957'; g.fillRect(0, 130, S, 3); g.fillRect(0, 251, S, 3);
+    g.fillStyle = '#1b2850'; g.fillRect(0, 0, S, 256);
+    g.save(); g.scale(0.31, 1); g.fillStyle = '#f1e8cc'; g.font = 'italic 600 80px Georgia, serif'; g.textAlign = 'center'; g.fillText('Building the inner man', 826, 90); g.restore();
+    g.fillStyle = '#c9a957'; g.fillRect(0, 4, S, 2); g.fillRect(0, 122, S, 2);
+    crest(g, 22, 144, 84);
     g.fillStyle = '#e9dfc8'; g.fillRect(0, 256, S, 256);
   }, false);
   // frontage atlas: x 0-127, y 0-383 = navy totem sign face (1.3 x 3.9 m); rows 384-511 = black palisade (alpha), repeats along u
@@ -12050,52 +12062,100 @@ LMX.ccgs = function (H) {
 
   const parts = [];
 
-  // ================================================================ T BLOCK (Design & Technology), OSM 45076252
+  // ================================================================ T BLOCK (Design & Technology), OSM 45076252  [v3, 5 Nov 2026, from Street View 2024-2026 + Esri aerial]
+  // Two storeys of pinkish-beige stone-look precast panels. The corner wing (north end, 20 m wide) stands 10.2 m with a deep panel frame round its
+  // top storey: recessed glazing, a glass balustrade, end fins and a 2 m frame head carrying the navy band 'Building the inner man'; a navy crest
+  // panel hangs under the band in the middle. Ground floor of the wing is a recessed glass curtain wall. The long bar behind (8.4 m) has a glazed
+  // ground floor between panel piers and a ribbon window upstairs; a raised gable roof light at its east end (seen from Queenslea Dr); dark roof with solar panels.
   const TB = [-31.9846259, 115.7778097, -31.9846256, 115.7780221, -31.9848584, 115.7780227, -31.9848583, 115.7780967, -31.9849403, 115.7780969,
     -31.9849414, 115.7774513, -31.9847534, 115.7774509, -31.9847529, 115.77781];
   {
-    const W = llPoly(TB), O = cen(W), P = W.map(p => p.clone().sub(O));
-    const T = { facade: [], plain: [], text: [] }, HT = 11.6, ST = 3.8;
-    // P indices: 0 NW of wing, 1 NE of wing, 2 wing SE / bar step, 3 step E, 4 SE, 5 SW, 6 NW of bar, 7 inner corner (wing W x bar N)
-    // ground storey plinth + three storeys of ribbon glazing on every wall (u: 6 m tiles, v: one storey per tile)
-    for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], n = outN(P, i);
-      wall(T.facade, a, b, -0.6, 0.35, n, [1, 1, 1], 6, ST, -4.2);    // solid strip (lower part of texture is cream)
-      wall(T.facade, a, b, 0.35, HT, n, [1, 1, 1], 6, ST, 0.35 - 0.3); }
-    prismWalls(T.plain, P, HT, HT + 0.9, CREAM, 0, 0, 0);          // parapet
-    const Pc = offsetPoly(P, 0.45); prismWalls(T.plain, Pc, HT + 0.75, HT + 1.15, CREAM2, 0, 0, 0);   // projecting cornice
-    cap(T.plain, Pc, HT + 1.15, CREAM2); cap(T.plain, P, HT + 0.18, ROOF);
-    // cornice underside (so it reads as a projecting slab from below)
-    { const g = new THREE.ShapeGeometry(new THREE.Shape(Pc.map(p => new V2(p.x, p.y)))); g.rotateX(Math.PI / 2); g.translate(0, HT + 0.75, 0); add(T.plain, g, null, [0.7, 0.67, 0.6]); }
-    // plant room + AC units on the roof
-    { const c = P[5].clone().lerp(P[3], 0.5); add(T.plain, boxG(9, 2.4, 6), M4(c.x - 6, HT + 0.18, c.y - 2), [0.84, 0.82, 0.78]);
-      for (let k = 0; k < 4; k++) add(T.plain, boxG(1.2, 1.1, 1.0), M4(c.x + 4 + k * 2.2, HT + 0.18, c.y), [0.75, 0.75, 0.74]); }
-    // deep cream frame round the top storey on the highway faces: frame head (navy band on the wing), floor-slab edge, end fins, glazed balustrade
-    const frame = (a, b, n, band) => {   // a,b along a north face, n outward
-      const L = a.distanceTo(b), m = a.clone().lerp(b, 0.5), yaw = Math.atan2(n.x, n.y), out = 0.95;
-      const at = (o, y) => M4(m.x + n.x * o, y, m.y + n.y * o, yaw);
-      add(T.plain, boxG(L + 0.5, 1.75, out + 0.1), at(out / 2, HT - 0.75), CREAM);                    // head
-      add(T.plain, boxG(L + 0.5, 0.4, out + 0.1), at(out / 2, 7.55), CREAM);                          // slab edge
-      for (const s of [-1, 1]) add(T.plain, boxG(0.45, HT - 7.55, out + 0.1), at(out / 2, 7.55).multiply(M4(s * (L / 2 + 0.02), 0, 0)), CREAM);   // fins
-      add(T.plain, boxG(L - 0.4, 1.0, 0.06), at(out - 0.1, 7.95), [0.45, 0.55, 0.6]);               // glass balustrade
-      add(T.plain, boxG(L - 0.4, 0.06, 0.12), at(out - 0.1, 8.95), [0.2, 0.2, 0.22]);                 // handrail
-      if (band) {   // navy band with the motto on the face of the frame head
-        const pg = new THREE.PlaneGeometry(L - 0.4, 1.55), uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 0.75 + uv.getY(i) * 0.25);
-        T.text.push({ g: pg.toNonIndexed().applyMatrix4(at(out + 0.07, HT + 0.12)), c: [1, 1, 1], keepUV: true });
-      }
-    };
-    frame(P[0], P[1], outN(P, 0), true);      // the corner wing, north face: 'Building the inner man'
-    frame(P[7], P[6], outN(P, 6), false);     // the main bar, north face (behind the car park)
-    // school name band on the wing's east face (towards Queenslea Dr)
-    { const a = P[1], b = P[2], n = outN(P, 1), m = a.clone().lerp(b, 0.5), L = a.distanceTo(b);
-      add(T.plain, boxG(L - 0.6, 1.8, 0.3), M4(m.x + n.x * 0.15, 9.15, m.y + n.y * 0.15, Math.atan2(n.x, n.y)), NAVY);
-      const pg = new THREE.PlaneGeometry(L - 1.0, 1.55), uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 0.5 + uv.getY(i) * 0.25);
-      T.text.push({ g: pg.toNonIndexed().applyMatrix4(M4(m.x + n.x * 0.32, 10.05, m.y + n.y * 0.32, Math.atan2(n.x, n.y))), c: [1, 1, 1], keepUV: true }); }
-    // entrance canopy + doors on the wing's east face (from the service road), and a door on the car park end
-    { const a = P[2], b = P[3], n = outN(P, 2), m = a.clone().lerp(b, 0.5);
-      add(T.plain, boxG(5.0, 0.3, 2.6), M4(m.x + n.x * 1.3, 3.1, m.y + n.y * 1.3, Math.atan2(n.x, n.y)), CREAM);
-      for (const s of [-1, 1]) add(T.plain, boxG(0.16, 3.1, 0.16), M4(m.x + n.x * 2.4, 0, m.y + n.y * 2.4, Math.atan2(n.x, n.y)).multiply(M4(s * 2.2, 0, 0)), CHAR);
-      add(T.plain, boxG(2.4, 2.5, 0.08), M4(m.x + n.x * 0.05, 0, m.y + n.y * 0.05, Math.atan2(n.x, n.y)), GLASS); }
-    { const a = P[5], b = P[6], n = outN(P, 5), m = a.clone().lerp(b, 0.5); add(T.plain, boxG(2.0, 2.4, 0.08), M4(m.x + n.x * 0.05, 0.3, m.y + n.y * 0.05, Math.atan2(n.x, n.y)), GLASS); }
+    const W = llPoly(TB), O = cen(W), P = W.map(p => p.clone().sub(O)), loc = p => p.clone().sub(O);
+    const T = { facade: [], plain: [], text: [] }, HW = 10.2, HB = 8.4, PANEL = [1, 1, 1];
+    // P: 0 NW of wing, 1 NE of wing, 2 wing SE / step, 3 step E, 4 SE, 5 SW, 6 NW of bar, 7 inner corner (wing W x bar N)
+    const A = loc(LL(-31.9847529, 115.7780222));                 // wing's SE corner on the bar's north line
+    const nN = outN(P, 0), nE = outN(P, 1), nW = outN(P, 7);
+    // grid of quads along a wall, each cell mapped to atlas columns [u0,u1] (0-0.5 = bar bay 6 x 8.4 m, 0.5-1 = plain panels 4.8 x 4.8 m)
+    function gridWall(a, b, y0, y1, n, cw, ch, u0, u1, yBase = 0, off = 0) {
+      const L = a.distanceTo(b), d = new V2().subVectors(b, a).normalize(), o = n.clone().multiplyScalar(off), side = new V2(-d.y, d.x).dot(n) > 0;
+      for (let s = 0; s < L - 1e-3; s += cw) { const e = Math.min(L, s + cw), fa = (s % cw) / cw, fb = fa + (e - s) / cw;
+        for (let y = y0; y < y1 - 1e-3;) { const yb = yBase + Math.floor((y - yBase) / ch + 1e-6) * ch, yt = Math.min(y1, yb + ch), va = (y - yb) / ch, vb = (yt - yb) / ch;
+          const p = a.clone().add(d.clone().multiplyScalar(s)).add(o), q = a.clone().add(d.clone().multiplyScalar(e)).add(o), ua = u0 + (u1 - u0) * fa, ub = u0 + (u1 - u0) * fb;
+          const v = [[p.x, y, p.y, ua, va], [q.x, y, q.y, ub, va], [q.x, yt, q.y, ub, vb], [p.x, y, p.y, ua, va], [q.x, yt, q.y, ub, vb], [p.x, yt, p.y, ua, vb]];
+          triList(T.facade, side ? v : [v[0], v[2], v[1], v[3], v[5], v[4]], PANEL, true); y = yt; } }
+    }
+    const panelWall = (a, b, y0, y1, n, off = 0) => gridWall(a, b, y0, y1, n, 4.8, 4.8, 0.5, 1, 0, off);
+    const yawOf = n => Math.atan2(n.x, n.y);
+    const at = (p, n, o, y) => M4(p.x + n.x * o, y, p.y + n.y * o, yawOf(n));
+    // ---- the bar (everything except the wing), 8.4 m, bays of 6 m
+    const B = [P[7], A, P[2], P[3], P[4], P[5], P[6]];
+    for (let i = 0; i < B.length; i++) { if (i === 0) continue;                           // P7 -> A is inside the wing
+      const a = B[i], b = B[(i + 1) % B.length], n = outN(B, i), L = a.distanceTo(b), k = Math.max(1, Math.round(L / 6));
+      gridWall(a, b, 0, HB, n, L / k, HB, 0, 0.5); panelWall(a, b, -0.7, 0, n); }
+    prismWalls(T.plain, offsetPoly(B, 0.12), HB, HB + 0.35, [0.8, 0.74, 0.66], 0, 0, 0);   // capping
+    cap(T.plain, B, HB + 0.05, [0.32, 0.33, 0.35]);
+    // raised gable roof light at the east end (ridge running E-W), east gable triangle in panels with a glazed half
+    { const g0 = loc(LL(-31.984859, 115.77788)), g1 = loc(LL(-31.984859, 115.7780967)), g2 = loc(LL(-31.984941, 115.7780969)), g3 = loc(LL(-31.984941, 115.77788));
+      const yR = HB + 2.8, m01 = g0.clone().lerp(g3, 0.5), m12 = g1.clone().lerp(g2, 0.5);
+      prismWalls(T.plain, [g0, g1, g2, g3], HB, HB + 0.6, [0.85, 0.77, 0.67], 0, 0, 0);
+      const y1 = HB + 0.6, tri = (a, b, c, col) => { const q = [[a.x, a.h, a.y], [b.x, b.h, b.y], [c.x, c.h, c.y]]; const tr = new V3(q[1][0] - q[0][0], q[1][1] - q[0][1], q[1][2] - q[0][2]).cross(new V3(q[2][0] - q[0][0], q[2][1] - q[0][1], q[2][2] - q[0][2]));
+        triList(T.plain, q, col, false); triList(T.plain, [q[0], q[2], q[1]], col, false); };
+      const h = (p, y) => Object.assign(p.clone(), { h: y });
+      tri(h(g1, y1), h(g2, y1), h(m12, yR), [0.84, 0.75, 0.65]); tri(h(g0, y1), h(g3, y1), h(m01, yR), [0.84, 0.75, 0.65]);
+      // glazed north half of the east gable (inset triangle)
+      { const nn = outN([g0, g1, g2, g3], 1).multiplyScalar(0.06), a = g1.clone().add(nn).lerp(m12, 0.12), c = m12.clone().add(nn);
+        tri(h(a, y1 + 0.35), h(c, y1 + 0.35), h(c.clone().lerp(a, 0.05), yR - 0.45), [0.16, 0.2, 0.25]); }
+      // the two roof slopes (metal deck, mid grey)
+      for (const [a, b] of [[g0, g1], [g3, g2]]) { const ma = a === g0 ? m01 : m01, mb = m12;
+        tri(h(a, y1), h(b, y1), h(mb, yR), [0.55, 0.56, 0.57]); tri(h(a, y1), h(mb, yR), h(ma, yR), [0.55, 0.56, 0.57]); } }
+    // solar panels on the bar roof (rows of dark blue modules, tilted a little to the north)
+    { const s0 = loc(LL(-31.98479, 115.77748)), s1 = loc(LL(-31.98479, 115.77792)), dS = new V2().subVectors(loc(LL(-31.98491, 115.77748)), s0);
+      const L = s0.distanceTo(s1), yaw = Math.atan2(-(s1.y - s0.y), s1.x - s0.x);
+      for (let r = 0; r < 4; r++) { const p = s0.clone().lerp(s1, 0.5).add(dS.clone().multiplyScalar(r / 3.2));
+        add(T.plain, new THREE.BoxGeometry(L, 0.08, 1.9), M4(p.x, HB + 0.5, p.y, yaw, 0, 0.0).multiply(M4(0, 0, 0, 0, -0.17)), [0.1, 0.13, 0.22]); } }
+    // ---- the corner wing (P0, P1, A, P7), 10.2 m
+    const WG = [P[0], P[1], A, P[7]];
+    const IN = 1.9;                                                                                 // recess of the glazing behind the frame
+    const p0i = P[0].clone().sub(nN.clone().multiplyScalar(IN)), p1i = P[1].clone().sub(nN.clone().multiplyScalar(IN));
+    // east and west walls of the wing (panels; ground-floor glazing on the northern half), parapet and roof
+    for (const [a, b, n] of [[p1i, A, nE], [P[7], p0i, nW]]) { panelWall(a, b, -0.7, HW, n); }
+    { const L = p1i.distanceTo(A); const g = boxG(Math.min(9, L * 0.6), 3.0, 0.08);
+      add(T.plain, g, at(p1i.clone().lerp(A, 0.3), nE, 0.05, 0.4), [0.15, 0.19, 0.23]); }
+    prismWalls(T.plain, offsetPoly(WG, 0.12), HW, HW + 0.3, [0.8, 0.74, 0.66], 0, 0, 0); cap(T.plain, WG, HW + 0.05, [0.32, 0.33, 0.35]);
+    // recessed north wall: glass curtain at ground floor and upstairs, panel slab band between
+    { const L = p0i.distanceTo(p1i), m = p0i.clone().lerp(p1i, 0.5), y = yawOf(nN);
+      for (const [y0, y1] of [[0, 3.8], [4.7, 8.2]]) {
+        add(T.plain, boxG(L, y1 - y0, 0.1), M4(m.x, y0, m.y, y), [0.13, 0.17, 0.21]);
+        for (let k = 0; k <= Math.round(L / 1.6); k++) { const p = p0i.clone().lerp(p1i, k / Math.round(L / 1.6)); add(T.plain, boxG(0.09, y1 - y0, 0.14), at(p, nN, 0.04, y0), [0.72, 0.73, 0.72]); }
+        add(T.plain, boxG(L, 0.08, 0.14), at(m, nN, 0.04, y0 + 2.7), [0.72, 0.73, 0.72]); }
+      panelWall(p0i, p1i, 3.8, 4.7, nN); panelWall(p0i, p1i, 8.2, HW, nN); panelWall(p0i, p1i, -0.7, 0, nN);
+      // a few round columns under the frame at ground level, and the sills of the curtain wall
+      for (const f of [0.02, 0.5, 0.98]) { const p = P[0].clone().lerp(P[1], f).sub(nN.clone().multiplyScalar(0.6)); add(T.plain, new THREE.CylinderGeometry(0.28, 0.28, 3.8, 10).translate(0, 1.9, 0), M4(p.x, 0, p.y), [0.86, 0.79, 0.7]); } }
+    // the frame round the top storey: floor-slab edge, end fins (returning along the side walls), head with soffit, glass balustrade
+    { const L = P[0].distanceTo(P[1]), m = P[0].clone().lerp(P[1], 0.5), d = new V2().subVectors(P[1], P[0]).normalize();
+      const slab = (y0, y1) => { add(T.plain, boxG(L + 0.6, y1 - y0, IN + 0.3), at(m, nN, 0.15 - IN / 2, y0), [0.86, 0.78, 0.68]); };
+      slab(3.8, 4.7);                                                                              // floor slab edge (deep, overhangs the ground floor)
+      slab(8.2, HW);                                                                               // frame head
+      for (const s of [-1, 1]) { const p = m.clone().add(d.clone().multiplyScalar(s * (L / 2 + 0.0))); add(T.plain, boxG(0.6, 8.2 - 4.7, IN + 0.3), at(p, nN, 0.15 - IN / 2, 4.7), [0.84, 0.76, 0.66]); }
+      add(T.plain, boxG(L - 0.6, 1.05, 0.04), at(m, nN, -0.25, 4.7), [0.5, 0.62, 0.66]);          // glass balustrade
+      add(T.plain, boxG(L - 0.6, 0.06, 0.1), at(m, nN, -0.25, 5.75), [0.75, 0.76, 0.76]);          // handrail
+      for (let k = 1; k < 8; k++) { const p = P[0].clone().lerp(P[1], k / 8); add(T.plain, boxG(0.05, 1.05, 0.05), at(p, nN, -0.25, 4.7), [0.6, 0.62, 0.62]); }
+      // navy band with 'Building the inner man' across the frame head (north face), returning 2 m along the east side
+      add(T.plain, boxG(L - 0.2, 1.62, 0.12), at(m, nN, 0.36, 8.4), NAVY);
+      { const pg = new THREE.PlaneGeometry(L - 0.3, 1.5), uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 0.75 + uv.getY(i) * 0.25);
+        T.text.push({ g: pg.toNonIndexed().applyMatrix4(at(m, nN, 0.43, 9.21)), c: [1, 1, 1], keepUV: true }); }
+      { const pe = P[1].clone().sub(nN.clone().multiplyScalar(1.0)); add(T.plain, boxG(2.0, 1.62, 0.12), at(pe, nE, 0.36, 8.4), NAVY); }
+      // crest panel hanging under the band in the middle (navy, crest on the front)
+      add(T.plain, boxG(1.7, 1.8, 0.16), at(m, nN, 0.3, 6.6), NAVY);
+      { const pg = new THREE.PlaneGeometry(1.5, 1.6), uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.25, 0.5 + uv.getY(i) * 0.25);
+        T.text.push({ g: pg.toNonIndexed().applyMatrix4(at(m, nN, 0.39, 7.5)), c: [1, 1, 1], keepUV: true }); }
+      // soffits under the slab overhang and the frame head
+      for (const y of [3.8, 8.2]) { const g = new THREE.PlaneGeometry(L + 0.6, IN + 0.3); g.rotateX(Math.PI / 2); add(T.plain, g, at(m, nN, 0.15 - IN / 2, y - 0.01), [0.8, 0.74, 0.66]); } }
+    // entrance on the east side (glass doors under a thin canopy off the service road), plant on the roof
+    { const m = P[2].clone().lerp(P[3], 0.5), n = outN(P, 2);
+      add(T.plain, boxG(5.0, 0.25, 2.2), at(m, n, 1.1, 3.0), [0.86, 0.78, 0.68]);
+      add(T.plain, boxG(3.0, 2.6, 0.08), at(m, n, 0.05, 0), [0.15, 0.19, 0.23]); }
+    { const c = P[5].clone().lerp(P[4], 0.5); add(T.plain, boxG(6, 1.6, 4), M4(c.x + 4, HB, c.y), [0.78, 0.78, 0.76]); }
     const G = new THREE.Group();
     G.add(merged(T.facade, MAT.facade, 0, { cast: true }), merged(T.plain, MAT.plain, 2, { cast: true }), merged(T.text, MAT.tText, 0));
     G.position.set(O.x, 0, O.y);
@@ -12144,25 +12204,33 @@ LMX.ccgs = function (H) {
       const a = R(u0, 8.9), b = R(u1, 8.9), L = u1 - u0, m = a.clone().lerp(b, 0.5);
       add(F.plain, boxG(L, 0.55 + 0.25, 0.3), M4(m.x, -0.25, m.y, RYAW), kind === 'navy' ? WHITE : LIME);
       add(F.plain, boxG(L + 0.04, 0.06, 0.36), M4(m.x, 0.55, m.y, RYAW), kind === 'navy' ? [0.88, 0.88, 0.86] : [0.9, 0.86, 0.75]);
+      if (kind === 'low') return;
       const step = kind === 'navy' ? 2.6 : 2.8, n = Math.max(1, Math.round(L / step));
       for (let k = 0; k <= n; k++) { const p = R(u0 + L * k / n, 8.9); add(F.plain, boxG(0.12, 1.4, 0.12), M4(p.x, 0.55, p.y, RYAW), BLACK); }
-      if (kind === 'navy') add(F.plain, new THREE.BoxGeometry(L, 1.2, 0.05), M4(m.x, 0.61 + 0.6, m.y, RYAW), NAVY);
+      if (kind === 'navy') add(F.plain, new THREE.BoxGeometry(L, 1.0, 0.05), M4(m.x, 0.6 + 0.5, m.y, RYAW), NAVY);
       else { const pg = new THREE.PlaneGeometry(L, 1.3), uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * L / 2.0, 0.005 + uv.getY(i) * 0.24);
         F.text.push({ g: pg.toNonIndexed().applyMatrix4(M4(m.x, 0.6 + 0.65, m.y, RYAW)), c: [1, 1, 1], keepUV: true }); }
     };
-    fenceRun(0, 27, 'navy'); fenceRun(27, 54, 'navy');                // the T Block frontage
+    fenceRun(0, 22, 'navy'); fenceRun(22, 54, 'low');                 // navy panels by the corner, then a low wall + hedge along the T Block (Street View 2024-26)
     fenceRun(54, 84, 'mesh'); fenceRun(84, 111.5, 'mesh');            // the staff car park; gap 111.5-120 = car park entrance
     // round the corner and down Queenslea Dr: white wall + navy panels following the corner footpath
     { const q = [R(0, 8.9), loc(LL(-31.98448, 115.778005)), loc(LL(-31.98466, 115.77815)), loc(LL(-31.98479, 115.77822))];
       for (let i = 0; i < q.length - 1; i++) { const a = q[i], b = q[i + 1], d = new V2().subVectors(b, a), L = d.length(), m = a.clone().lerp(b, 0.5), yaw = Math.atan2(-d.y, d.x);
-        add(F.plain, boxG(L, 0.8, 0.3), M4(m.x, -0.25, m.y, yaw), WHITE); add(F.plain, new THREE.BoxGeometry(L, 1.2, 0.05), M4(m.x, 1.21, m.y, yaw), NAVY);
+        add(F.plain, boxG(L, 0.8, 0.3), M4(m.x, -0.25, m.y, yaw), WHITE); add(F.plain, new THREE.BoxGeometry(L, 1.0, 0.05), M4(m.x, 1.1, m.y, yaw), NAVY);
         add(F.plain, boxG(0.12, 1.4, 0.12), M4(b.x, 0.55, b.y, yaw), BLACK); } }
     // clipped hedges inside the car park fence and along the lawn islands
-    for (const [u0, u1, v, h] of [[55, 83, 10.2, 1.3], [85, 111, 10.2, 1.3], [60, 109, 27.0, 0.7]]) { const a = R(u0, v), b = R(u1, v), m = a.clone().lerp(b, 0.5);
+    for (const [u0, u1, v, h] of [[23, 53, 10.0, 1.1], [55, 83, 10.2, 1.3], [85, 111, 10.2, 1.3], [60, 109, 27.0, 0.7]]) { const a = R(u0, v), b = R(u1, v), m = a.clone().lerp(b, 0.5);
       add(F.leaf, boxG(u1 - u0, h, v > 15 ? 1.6 : 1.1), M4(m.x, 0, m.y, RYAW), [0.62, 0.72, 0.5]); }
     // TREES: London planes along the frontage and over the car park, the big spreading pine on the corner
     for (const [u, v, s] of [[15, 13.0, 0.95], [28, 13.0, 1.0], [41, 13.0, 0.9], [52, 13.5, 0.95], [64, 27, 1.0], [77, 27, 0.95], [90, 27, 1.05], [103, 27, 0.9], [36, 23.5, 0.8]]) { const p = R(u, v); plane(F, p.x, p.y, s); }
-    { const p = loc(LL(-31.98453, 115.77793)); pine(F, p.x, p.y, 1.05); }
+    { const p = loc(LL(-31.98453, 115.77793)); pine(F, p.x, p.y, 1.3); }
+    // nose-in parking along the bar's north face, between the service road and the building (Street View 2024-26 shows a full row)
+    { const q0 = loc(LL(-31.984668, 115.77748)), q1 = loc(LL(-31.984668, 115.77779)), q2 = loc(LL(-31.98475, 115.77779)), q3 = loc(LL(-31.98475, 115.77748));
+      cap(F.ground, [q0, q1, q2, q3], 0.065, ASPH);
+      const yaw = Math.atan2(-(q1.y - q0.y), q1.x - q0.x) + Math.PI / 2, n = Math.floor(q0.distanceTo(q1) / 2.6);
+      for (let k = 0; k < n; k++) { const p = q0.clone().lerp(q1, (k + 0.5) / n).lerp(q3.clone().lerp(q2, (k + 0.5) / n), 0.5);
+        add(F.plain, new THREE.BoxGeometry(0.1, 0.02, 4.8), M4(p.x + (q1.x - q0.x) / n / 2, 0.09, p.y + (q1.y - q0.y) / n / 2, yaw - Math.PI / 2 + Math.PI / 2), WHITE);
+        if (rnd() < 0.75) car(F, p.x, p.y, yaw + (rnd() - 0.5) * 0.08); } }
     // navy totem sign on the corner, facing the junction
     { const p = loc(LL(-31.98454, 115.77806)), yaw = Math.atan2(0.6, -0.8), m = M4(p.x, 0, p.y, yaw);
       add(F.plain, boxG(1.5, 0.5, 0.6), m, [0.8, 0.78, 0.74]); add(F.plain, boxG(1.4, 4.1, 0.5), m.clone().multiply(M4(0, 0.4, 0)), NAVY);
