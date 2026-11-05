@@ -32649,16 +32649,16 @@ body.pbCrash #speedo,body.pbCrash #roadsign,body.pbCrash #map,body.pbCrash #fpsb
   };
   const STORY = {
     fwd: { clock: '6:41 PM', where: 'Rivervale', title: "You're <em>late</em>",
-      text: "Lamb on the spit at Yiayia's, 7 Columba Place. It's been turning since 6 this morning, the whole family is there, and you're still on the couch {km} km away.",
-      chat: 'Family', msgs: [['Yiayia', 'Kosta mou, the lamb is nearly ready \u{1F411}\u{1F525} Ela!'], ['Mum', 'Everyone is here. EVERYONE. Where are you??', 'mum'],
+      text: "Lamb on the spit at Yiayia's, 7 Columba Place. It's been turning since 6 this morning, the whole family is there, and the cousins are already circling it. You're still on the couch {km} km away. Get there before they eat all the good bits.",
+      chat: 'Family', msgs: [['Yiayia', 'Kosta mou, the lamb is nearly ready \u{1F411}\u{1F525} Ela!'], ['Mum', 'Everyone is here. EVERYONE. Where are you??', 'mum'], ['Mum', 'The cousins are hovering round the spit \u{1F440}', 'mum'],
         ['The Gruffalo', 'Spit\u2019s nearly done mate. Grab ice for the esky on the way'], ['Yiayia', 'And drive careful!! \u{1F618}']] },
     rev: { clock: '8:12 PM', where: 'Peppermint Grove', title: 'Leftovers <em>run</em>',
       text: "Yiayia packed enough leftovers for a week. Get them home to 66A Surrey Rd, Rivervale before Mum goes to bed.",
       chat: 'Family', msgs: [['Yiayia', 'You forgot the leftovers! I put them on the front seat \u{1F961}'], ['Mum', 'Bring Yiayia’s containers straight home, the pastitsio is for tomorrow', 'mum'],
         ['Mum', 'Fridge before 9 please. Hurry'], ['Yiayia', 'And drive careful!! \u{1F618}']] },
     // for a results / time-up card (optional, see INTEGRATION.md)
-    onTime: ["Yiayia: Ela, ela! Sit! I saved you the crispy bits.", "Just in time. The Gruffalo hands you the carving knife. Opa!", "Yiayia: You see? When you want, you can."],
-    late: ["The Gruffalo carved without you. Only the ribs are left.", "Late. Yiayia says nothing. That is worse.", "Mum: The cousins ate all the kokoretsi."],
+    onTime: ["Yiayia: Ela, ela! Sit! I hid the crispy bits from the cousins.", "Just in time. The Gruffalo hands you the carving knife. Opa!", "Yiayia: You see? When you want, you can."],
+    late: ["Too late. The cousins ate all the good bits. You get the salad.", "The Gruffalo carved without you. Only the ribs are left.", "Late. Yiayia says nothing. That is worse.", "Mum: The cousins ate all the kokoretsi."],
   };
   const RACE_IDS = ['dir', 'mode', 'feel', 'paint', 'tod', 'wx'];
   const TABS = [
@@ -32717,7 +32717,7 @@ body.pbCrash #speedo,body.pbCrash #roadsign,body.pbCrash #map,body.pbCrash #fpsb
     let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const stars = []; for (let i = 0; i < 26; i++) stars.push({ x: rnd(), y: rnd() * 0.5, p: rnd() * 6.28 });
     const houses = []; for (let i = 0; i < 7; i++) houses.push({ x: i / 6 + rnd() * 0.05, w: 0.12 + rnd() * 0.08, h: 0.16 + rnd() * 0.12, lit: rnd() > 0.4 });
-    const texts = ['Yiayia: The lamb is nearly ready!', 'The Gruffalo: Spit\u2019s turning, where are ya?', 'Mum: Everyone is here!!', 'Yiayia: 3 missed calls', 'Yiayia: Bring the tzatziki'];
+    const texts = ['Yiayia: The lamb is nearly ready!', 'The Gruffalo: Spit\u2019s turning, where are ya?', 'Mum: Everyone is here!!', 'Yiayia: 3 missed calls', 'Yiayia: Bring the tzatziki', 'Mum: The cousins are at the lamb!!'];
     function size() {
       dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const r = canvas.getBoundingClientRect(); W = Math.max(2, r.width * dpr | 0); H = Math.max(2, r.height * dpr | 0);
@@ -35380,6 +35380,52 @@ function placeAt(i) {
   C.x = r.p.x + r.r.x * off; C.z = r.p.y + r.r.y * off; C.y = r.h;
   C.yaw = Math.atan2(-r.t.x, -r.t.y); C.vx = C.vz = 0; C.steer = 0; C.yawRate = 0; C.idx = i; C.fidx = r.fi ?? i; C.slip = 0; C.sliding = false; C._h = null; C.gear = 1; try { for (const tc of traffic) if (Math.abs(tc.d - r.d) < 40) spawnTraffic(tc, r.d + 200 + Math.random() * 400); if (oncoming.length) { const T = OT(), myOT = T[otIndexNear(i)].d; oncoming.forEach((tc, n) => spawnOncoming(tc, myOT - 80 - n * 90 - Math.random() * 50)); } } catch { }
 }
+// ---- extras/respawn: a clear run after a crash or a reset (5 Nov 2026) ----
+// Before: the car came back at the impact spot in the left lane, i.e. right behind the car it had just hit.
+// Now: it comes back past the obstacle (at least CLEAR.past m on, and past any car parked across the spot), in the middle of
+// our own side of the road, facing the route, and every car / bus on our side from CLEAR.back m behind to CLEAR.ahead m ahead is
+// recycled (the screen is faded to black, so nothing visibly pops). Oncoming cars within CLEAR.oppR m go too, and anything
+// left within 150 m can't hit us for CLEAR.ghost s. Tune live via window.__clearRun.
+const CLEAR = { past: 14, maxShift: 60, back: 30, ahead: 180, oppR: 45, ghost: 2.5 };
+window.__clearRun = CLEAR;
+function clearRoadAround(T, j) {
+  const P = window.__PT, M = P && P.M, cars = M && M.cars ? M.cars.cars : [], buses = M && M.buses ? M.buses.buses : [];
+  const d = T[j].d, r = T[j]; let n = 0;
+  for (const a of cars) {
+    if (!a.active) continue;
+    const near = Math.hypot(a.x - C.x, a.z - C.z);
+    const inWin = a.T === T && a.d > d - CLEAR.back && a.d < d + CLEAR.ahead;
+    if (inWin || near < CLEAR.oppR) { a.active = false; a.hidden = true; a.state = 'off'; a.v = 0; a.fairHold = false; try { a.h.show(false); a.h.indicator(0); } catch { } n++; }
+    else if (near < 150) a.ghostT = Math.max(a.ghostT || 0, CLEAR.ghost);
+  }
+  for (const b of buses) {
+    if (!b.active) continue;
+    if ((b.T === T && b.d > d - CLEAR.back && b.d < d + CLEAR.ahead) || Math.hypot(b.x - C.x, b.z - C.z) < CLEAR.oppR) { b.active = false; b.T = null; b.hidden = true; b.retry = 3; try { if (b.h) b.h.show(false); } catch { } n++; }
+  }
+  return n;
+}
+function placeClear(i) {
+  const T = TRK, N = T.length; i = Math.max(0, Math.min(N - 3, i | 0));
+  const d0 = T[i].d; let dT = d0 + CLEAR.past;
+  // past anything sitting on our side just ahead of the impact (the car we hit, a queue behind it, a bus)
+  const P = window.__PT, M = P && P.M, obs = [];
+  if (M && M.cars) for (const a of M.cars.cars) if (a.active && a.T === T) obs.push(a.d + (a.len || 4.5) / 2);
+  if (M && M.buses) for (const b of M.buses.buses) if (b.active && b.T === T) obs.push(b.d + (b.len || 12) / 2);
+  for (const tc of traffic) obs.push(tc.d + 2.5);
+  for (let k = 0; k < 4; k++) for (const e of obs) if (e > dT - 10 && e < dT + 6) dT = Math.max(dT, e + 8);   // a short chain: car, car, car
+  dT = Math.min(dT, d0 + CLEAR.maxShift);   // stay under the traffic module's 80 m "teleport" threshold so it doesn't respawn everything
+  let j = i; while (j < N - 3 && T[j].d < dT) j++;
+  placeAt(j);
+  // middle of our own side (the whole road on a one-way street), still off a red bike lane
+  const r = T[j], n = Math.max(1, r.lanes || 1), laneW = r.w / n, own = ownLanes(T, j);
+  let off = -r.w / 2 + own * laneW / 2; const minOff = -r.w / 2 + laneW / 2 + ((r.xs?.fl || 0) & 2 ? (r.bike || 0.7) : 0); if (off < minOff) off = minOff;
+  C.x = r.p.x + r.r.x * off; C.z = r.p.y + r.r.y * off;
+  clearRoadAround(T, j);
+  // the traffic module may run once more before the fade lifts: sweep again
+  setTimeout(() => { try { if (TRK === T) clearRoadAround(T, C.idx); } catch { } }, 60);
+  setTimeout(() => { try { if (TRK === T) clearRoadAround(T, C.idx); } catch { } }, 200);
+  window.__lastClearRun = { from: i, to: j, shift: +(T[j].d - d0).toFixed(1), off: +off.toFixed(2) };
+}
 const GEARS = [0, 52, 92, 130, 168, 206, 260]; // km/h top of each gear
 const VMAX = 258 / 3.6, WHEELBASE = 2.65;
 let steerFeel = 1;
@@ -35811,7 +35857,7 @@ window.__straights = STR;
 // ---- extras/burnout: slow-mo crash camera, busy traffic, boost camera (extras/burnout/perth-burnout.js)
 const BO = window.PerthBurnout ? window.PerthBurnout.create({ THREE, scene, camera, C, paint, keys, traffic, oncoming,
   ground: (x, z) => { const i = nearestOnRoad(x, z, C.idx, TRK); return roadFrame(x, z, i, TRK).h; },
-  placeAt: i => placeAt(i), onRespawn: () => { camInit = true; },
+  placeAt: i => placeClear(i), onRespawn: () => { camInit = true; },
   mode: () => ($('crashes') ? $('crashes').value : 'cam'), busy: () => $('traffic').value === '2',
   bonnet: () => view === 2, grade: () => grade, fxLevel: () => fxLevel }) : null;
 const BOTS = () => (BO ? BO.ts : 1);
@@ -35847,7 +35893,7 @@ try { $('key').value = SAVED_KEY || localStorage.getItem('perthTilesKey'); } cat
 const show = (id, on) => $(id).hidden = !on;
 const hudOn = on => ['roadsign', 'speedo', 'map', 'fpsbox'].forEach(id => show(id, on));
 function toSetup(msg) { if (STR) STR.hide(); state = 'setup'; hudOn(false); show('pause', false); show('loading', false); show('results', false); show('setup', true); if (BO) BO.hide(); $('err').textContent = msg || ''; }
-function resetToRoad() { placeAt(C.idx); camInit = true; toast('Back on the road', '', 1000); }
+function resetToRoad() { placeClear(C.idx); camInit = true; toast('Back on the road', '', 1000); }
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'drive') togglePause(); });
 // per-run statistics: average frame rate and map data downloaded (shown on the results card)
 const runStats = (() => { let frames = 0, secs = 0, bytes = 0, base = 0; const tally = () => { let b = 0; for (const e of performance.getEntriesByType('resource')) if (/googleapis\.com/.test(e.name)) b += e.transferSize || e.encodedBodySize || 0; return b; };
