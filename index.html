@@ -27035,6 +27035,25 @@ window.__lm = { LM, lmRoot };
       if (any) { P.needsUpdate = true; g.computeBoundingSphere(); } });
     if (cut) console.log('lmx canopy clearance', obj.name || '', cut, 'cards'); return cut;
   } catch (e) { console.warn('clearCanopy', e); return -1; } };
+  // phase4 (5 Nov, Kostas's recorded run: crashed into a garden wall in the left lane of Bindaring Pde): nothing modelled may stand
+  // INSIDE the lanes. Any wall/hedge/foliage triangle with a corner over the carriageway (0.3 m in from the lane edge) between
+  // 0.25 m and 4.8 m above the road is collapsed. Flat pieces (paving, lawn) and things high overhead are left alone.
+  const clearLanes = (obj) => { try {
+    obj.updateWorldMatrix(true, true); const v = new THREE.Vector3(), nA = new THREE.Vector3(), nB = new THREE.Vector3(); let cut = 0;
+    obj.traverse(m => { if (!m.isMesh || !m.geometry) return;
+      const g = m.geometry, P = g.attributes.position, idx = g.index ? g.index.array : null, n = idx ? idx.length : P.count, ia = i => idx ? idx[i] : i, foliage = !!(m.material && m.material.alphaTest > 0);
+      if (!g.boundingSphere) g.computeBoundingSphere(); { const bs = g.boundingSphere, c = bs.center.clone().applyMatrix4(m.matrixWorld), rad = bs.radius * m.matrixWorld.getMaxScaleOnAxis();
+        if (rad < 60) { const r = roadH(c.x, c.z); if (r == null) return; } }   // small mesh with no road within ~70 m: skip
+      const inLane = i => { v.set(P.getX(i), P.getY(i), P.getZ(i)).applyMatrix4(m.matrixWorld); const r = nearRoad(v.x, v.z); if (!r) return false; const yw = v.y - r.h; if (!(yw > 0.25 && yw < 4.8)) return false;
+        return Math.abs((v.x - r.p.x) * r.r.x + (v.z - r.p.y) * r.r.y) < r.w / 2 - 0.3 && Math.abs((v.x - r.p.x) * r.t.x + (v.z - r.p.y) * r.t.y) < 2.2; };
+      let any = false;
+      for (let t = 0; t + 2 < n; t += 3) { const a = ia(t), b = ia(t + 1), c = ia(t + 2);
+        if (!(inLane(a) || inLane(b) || inLane(c))) continue;
+        if (!foliage) { nA.set(P.getX(b) - P.getX(a), P.getY(b) - P.getY(a), P.getZ(b) - P.getZ(a)); nB.set(P.getX(c) - P.getX(a), P.getY(c) - P.getY(a), P.getZ(c) - P.getZ(a)); nA.cross(nB).normalize(); if (Math.abs(nA.y) > 0.85) continue; }   // flat: keep
+        if (idx) { idx[t + 1] = a; idx[t + 2] = a; } else for (const q of [b, c]) P.setXYZ(q, P.getX(a), P.getY(a), P.getZ(a)); any = true; cut++; }
+      if (any) { if (idx) g.index.needsUpdate = true; P.needsUpdate = true; g.computeBoundingSphere(); } });
+    if (cut) { console.log('lmx lane clearance', obj.name || '', cut, 'tris'); window.__laneCut = (window.__laneCut || 0) + cut; } return cut;
+  } catch (e) { console.warn('clearLanes', e); return -1; } };
   // phase4 (5 Nov): long street blocks (one part spanning 50 m+ of a sloping street, e.g. Newey St) sat on ONE ground height, so their
   // far end floated or sank (Kostas: fence in the air on Newey St). Their vertices now follow the road height beside them instead.
   let farGrid = null; const roadH = (x, z) => {
@@ -27068,7 +27087,7 @@ window.__lm = { LM, lmRoot };
     }
     if (R.update) lmxUpd.push(R.update);
   }
-  { const _u = updateLandmarks; let t = 0; updateLandmarks = dt => { _u(dt); t += dt; for (const F of follow) if (F.obj.visible !== false && Math.abs(F.obj.position.y) < 900 && F.obj.position.y !== F.at) followRoad(F); for (const u of lmxUpd) u(dt, t); ++clearFrames; window.__lmxFrames = clearFrames; window.__lmxPend = pendingClear.length; if (pendingClear.length && (clearFrames === 3 || clearFrames === 40 || clearFrames === 150 || clearFrames === 500 || clearFrames === 1500)) { for (const o of pendingClear) clearCanopy(o); if (clearFrames === 1500) pendingClear.length = 0; } }; }   // clearance again at frames 3/40/150/500: the lots move to their measured ground height once Google's tiles are in
+  { const _u = updateLandmarks; let t = 0; updateLandmarks = dt => { _u(dt); t += dt; for (const F of follow) if (F.obj.visible !== false && Math.abs(F.obj.position.y) < 900 && F.obj.position.y !== F.at) followRoad(F); for (const u of lmxUpd) u(dt, t); ++clearFrames; window.__lmxFrames = clearFrames; window.__lmxPend = pendingClear.length; if (pendingClear.length && (clearFrames === 3 || clearFrames === 40 || clearFrames === 150 || clearFrames === 500 || clearFrames === 1500)) { for (const o of pendingClear) { clearCanopy(o); clearLanes(o); } if (clearFrames === 1500) pendingClear.length = 0; } }; }   // clearance again at frames 3/40/150/500: the lots move to their measured ground height once Google's tiles are in
   window.__lmx = { LMX_OUT, clearCanopy, follow };
 }
 
