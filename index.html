@@ -2800,7 +2800,7 @@ function buildRoad() {
                 else if (kind === 'rail') { wall(RL, 6); if (Math.floor(r1.d / 3.6) !== Math.floor(r0.d / 3.6)) pillars.push([i, h0, hv > 0.5 ? 1 : hv > 0.25 ? 2 : 0]); }
                 else if (kind === 'picket') wall(PK, 6);
                 else if (kind === 'timber') wall(TW, 6);
-                else if (kind === 'hoard') wall(HO, 6);
+                else if (kind === 'hoard') wall(LS);   // 6 Nov: the survey's dark construction hoarding read as a black gap under the raised lawns on Keane St (run feedback item 9); a limestone retaining wall, as along the rest of Peppermint Grove
                 else { wall([BW, WR, LS][wk]); if (Math.floor(r1.d / 3.6) !== Math.floor(r0.d / 3.6)) pillars.push([i, h0, wk]); }
               } else if (kind !== 'hedge' && kind !== 'picket' && kind !== 'timber' && kind !== 'hoard' && (inLot < 16.5 + 1 || inLot >= 20.2 - 1) && Math.floor(r1.d / 3.6) !== Math.floor(r0.d / 3.6)) pillars.push([i, h0, wk]);   // gate piers
             }
@@ -26442,7 +26442,7 @@ function lmSetBase(L, y, n) {
   // extras/landmarks parts beside the road: the ring reading can land on a bank, a river edge or a roof (the zoo lots came out
   // 14 m under Mill Point Rd), so a lot whose footprint comes within 30 m of the route is held to the road's own height there.
   if (L.kind && L.kind.startsWith('lmx-')) {
-    if (L.nearRoad === undefined) { let best = 1e9, h = null; for (const p of L.pl) { const ra = rastAt(p.x, p.y); if (ra && ra.j >= 0) { const r = road[ra.j], d = Math.hypot(p.x - r.p.x, p.y - r.p.y); if (d < best) { best = d; h = r.h; } } } L.nearRoad = best < 30 ? h : null; L.nearD = best; }
+    if (L.nearRoad === undefined) { let best = 1e9, h = null; for (const p of L.pl) { const ra = rastAt(p.x, p.y); if (ra && ra.j >= 0) { const r = road[ra.j], d = Math.hypot(p.x - r.p.x, p.y - r.p.y); if (d < best) { best = d; h = r.h; } } } L.nearRoad = best < (/^lmx-fwbay$/.test(L.kind) ? 90 : 30) ? h : null; L.nearD = best; }   // 6 Nov: Freshwater Bay's park buildings sit 50-70 m off the Esplanade at river level; the Freshwaters cafe read the fig canopy and floated 11 m up
     // height check (5 Nov): a lot beside the road sits within ~1 m of the road at the kerb, a bit more further back (slopes); Google's
     // ring readings under fig canopies and on torn ground were putting zoo and highway lots metres above or below the road
     const HILLSIDE = /^lmx-(mtstreet|mounthosp|kingspark|rvgeh3|narrows|causeway|boats|oldmill|burswood|rpyc)$/;   // on the escarpment, bridges or water: keep their own heights
@@ -31151,7 +31151,7 @@ PTX.mods.people = G => {
   // ---------- spawn slots on a 50 m grid ----------
   const SG = new Map(), SC = 50;
   const addSlot = (x, z, w, a, b, c, pw) => { const k = Math.floor(x / SC) * 65536 + Math.floor(z / SC); (SG.get(k) || SG.set(k, []).get(k)).push({ x, z, w, a, b, c, pw: w * pw }); };
-  paths.forEach((p, pi) => { const dens = PATH_DENS[p.k] / 1000 * (p.k === 2 ? 0.6 : 1); for (let s = 3; s < p.len - 3; s += 10) { const q = segAt(p, s, 0); const j = nearRoad(p.x[q], p.z[q], 60), dr = j >= 0 ? Math.hypot(road[j].p.x - p.x[q], road[j].p.y - p.z[q]) : 99; addSlot(p.x[q], p.z[q], dens * 10, 0, pi, s, dr < 45 ? 2.5 : 0.4); } });
+  paths.forEach((p, pi) => { const dens = PATH_DENS[p.k] / 1000 * (p.k === 2 ? 0.6 : 1); for (let s = 3; s < p.len - 3; s += 10) { const q = segAt(p, s, 0); const j = nearRoad(p.x[q], p.z[q], 60), dr = j >= 0 ? Math.hypot(road[j].p.x - p.x[q], road[j].p.y - p.z[q]) : 99; if (j >= 0 && (road[j].mw || /Freeway/.test(segName(j))) && Math.abs(latOf(j, p.x[q], p.z[q])) < road[j].w / 2 + 9) continue; addSlot(p.x[q], p.z[q], dens * 10, 0, pi, s, dr < 45 ? 2.5 : 0.4); } });
   for (let i = 0; i < NR - 1; i += 3) for (let sd = 0; sd < 2; sd++) if (FP[sd][i] === FP[sd][i]) { const r = road[i], o = FP[sd][i]; addSlot(r.p.x + r.r.x * o, r.p.y + r.r.y * o, FD[sd][i] * 9, 1, sd, i, 4); }
   function segAt(p, s, q) { while (q < p.n - 2 && p.L[q + 1] <= s) q++; while (q > 0 && p.L[q] > s) q--; return q; }
 
@@ -31742,7 +31742,7 @@ PTX.mods.people = G => {
     // ----- knock-overs (Kostas 5 Nov: "poles and people should be hit", slapstick, nothing copied) -----
     // Wheelie bins out on the kerb along the residential streets (green body, red or yellow lid): hit one and it flies, spins
     // and lands on its side; the car barely notices. Pedestrians in the car's path dive clear with a hop and a roll.
-    const RESID = /Surrey|Newey|Kooyong|Richardson|Esplanade|Keane|Venn|Columba|Bindaring/;
+    const RESID = /Surrey|Newey|Richardson|Esplanade|Keane|Venn|Columba|Bindaring/;   // 6 Nov: not Kooyong Rd (offices and a car yard, and Kostas saw a bin in his lane there)
     const MAXB = 220, binGeo = new THREE.BoxGeometry(0.62, 1.02, 0.72); binGeo.translate(0, 0.51, 0);
     const lidGeo = new THREE.BoxGeometry(0.66, 0.07, 0.78); lidGeo.translate(0, 1.055, 0.02);
     const binIM = new THREE.InstancedMesh(binGeo, new THREE.MeshStandardMaterial({ color: 0x1f5a35, roughness: 0.75 }), MAXB);
@@ -31756,8 +31756,8 @@ PTX.mods.people = G => {
       for (let i = 20; i < N - 20 && bins.length < MAXB; i++) {
         if (T[i].d - lastD < 28 + rnd() * 30) continue; if (!RESID.test(segName(i))) continue;
         const g = geo(T); if (g.corners.some(c => T[i].d > c.d0 - 15 && T[i].d < c.d1 + 15)) continue;
-        lastD = T[i].d; const r = T[i], rx = -r.t.y, rz = r.t.x, w = (r.w || 7) / 2 - 0.35, n = rnd() < 0.5 ? 2 : 1;
-        for (let k = 0; k < n; k++) { const off = -w, al = k * 0.85; bins.push({ x: r.p.x + rx * off + r.t.x * al, y: r.h, z: r.p.y + rz * off + r.t.y * al, yaw: Math.atan2(-r.t.x, -r.t.y) + Math.PI / 2 + (rnd() - 0.5) * 0.4, p: 0, ro: 0, vx: 0, vy: 0, vz: 0, w: [0, 0, 0], hit: false, rest: true, g0: r.h, lid: rnd() < 0.6 ? 0 : 1 }); }
+        lastD = T[i].d; const r = T[i], rx = -r.t.y, rz = r.t.x, w = (r.w || 7) / 2 + 0.35 + 0.3 + 0.45, n = rnd() < 0.5 ? 2 : 1;
+        for (let k = 0; k < n; k++) { const off = -w, al = k * 0.85; bins.push({ x: r.p.x + rx * off + r.t.x * al, y: r.h + 0.15, z: r.p.y + rz * off + r.t.y * al, yaw: Math.atan2(-r.t.x, -r.t.y) + Math.PI / 2 + (rnd() - 0.5) * 0.4, p: 0, ro: 0, vx: 0, vy: 0, vz: 0, w: [0, 0, 0], hit: false, rest: true, g0: r.h + 0.15, lid: rnd() < 0.6 ? 0 : 1 }); }   // bins stand on the verge behind the kerb (6 Nov: in the gutter they read as rubbish on the road)
       }
       binIM.count = lidIM.count = bins.length; bins.forEach((b, k) => { lidIM.setColorAt(k, lidCols[b.lid]); writeBin(b, k); });
       if (lidIM.instanceColor) lidIM.instanceColor.needsUpdate = true; binIM.instanceMatrix.needsUpdate = lidIM.instanceMatrix.needsUpdate = true; binTrk = T; S.bins = bins.length;
