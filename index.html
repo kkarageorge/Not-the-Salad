@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=8943060</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=8943252</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -36866,7 +36866,7 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
 
   const TEXT = {
     fwd: {
-      introClock: ['6:48 PM', 'Outside 66A Surrey Rd, Rivervale'],
+      introClock: ['12:41 PM', 'Outside 66A Surrey Rd, Rivervale'],
       chat: [['Yiayia', 'Kosta mou, the lamb is ready \u{1F411}\u{1F525} WHERE ARE YOU'], ['Mum', 'The cousins are circling the spit. CIRCLING.', 'mum'], ['The Gruffalo', 'I can only hold them off so long mate. Crispy bits going fast', 'uncle'], ['Yiayia', 'Hurry or all that\u2019s left is the SALAD \u{1F957}']],
       title: ['Not the Salad!', 'Late for Yiayia’s', 'Rivervale ▸ 7 Columba Place · 20.9 km'],
       outClock: ['7 Columba Place', 'Peppermint Grove'],
@@ -36875,12 +36875,12 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
       endOn: ['Made it. Just.', 'The crispy bits are yours'], endLate: ['Salad.', 'All that\u2019s left is the salad'],
     },
     rev: {
-      introClock: ['8:12 PM', '7 Columba Place, Peppermint Grove'],
-      chat: [['Yiayia', 'You forgot the leftovers! On the front seat \u{1F961}'], ['Mum', 'Pastitsio is for tomorrow. Fridge before 9!', 'mum'], ['Yiayia', 'And drive careful!! \u{1F618}']],
+      introClock: ['3:12 PM', '7 Columba Place, Peppermint Grove'],
+      chat: [['Yiayia', 'You forgot the leftovers! On the front seat \u{1F961}'], ['Mum', 'Pastitsio is for tomorrow. Fridge before 5!', 'mum'], ['Yiayia', 'And drive careful!! \u{1F618}']],
       title: ['Not the Salad!', 'Leftovers run', '7 Columba Place ▸ 66A Surrey Rd'],
       outClock: ['66A Surrey Rd', 'Rivervale'],
       onTime: [['Mum', 'Fridge. Now. Good boy.'], ['Mum', 'Did she give you the koulourakia too?']],
-      late: [['Mum', 'It’s 9:05. The pastitsio is warm.'], ['Mum', 'Your Yiayia will hear about this.']],
+      late: [['Mum', 'It’s 5:05. The pastitsio is warm.'], ['Mum', 'Your Yiayia will hear about this.']],
       endOn: ['Home.', 'Leftovers in the fridge'], endLate: ['Late.', 'Mum is not impressed'],
     },
   };
@@ -37054,7 +37054,7 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
       }
       if (t >= S.len) finish();
     }
-    function finish() { if (!active) return; active = null; reset(); root.classList.remove('on'); document.body.classList.remove('cs-on'); setTimeout(() => { root.hidden = true; }, 600); removeEventListener('keydown', onKey, true); const d = done; done = null; d && d(); }
+    function finish() { if (!active) return; active = null; reset(); root.classList.remove('on'); document.body.classList.remove('cs-on'); hideT = setTimeout(() => { root.hidden = true; }, 600); removeEventListener('keydown', onKey, true); const d = done; done = null; d && d(); }
     function onKey(e) { if (['Enter', 'Space', 'Escape', 'NumpadEnter'].includes(e.code)) { e.preventDefault(); e.stopPropagation(); finish(); } }
     let padWas = false;
     function padSkip() { try { for (const g of navigator.getGamepads ? navigator.getGamepads() : []) { if (!g) continue; const p = !!(g.buttons[0]?.pressed || g.buttons[9]?.pressed); if (p && !padWas && t > 0.6) { padWas = p; return true; } padWas = p; } } catch (e) { } return false; }
@@ -37074,8 +37074,10 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
       return rr(sc, camera);
     };
 
+    let hideT = 0;   // 6 Nov: a play() within 0.6 s of finish() was hidden again by finish's pending timer (second outro showed no bubbles, title or bars)
     function play(name, opts = {}) {
       if (active) finish();
+      clearTimeout(hideT);
       if (opts.dir) dir = opts.dir;
       Object.assign(o, opts);
       if (name === 'outro') placeParty(); else if (props) props.visible = false;
