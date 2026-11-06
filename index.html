@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=8950996</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=8952282</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -26174,6 +26174,13 @@ function surfAt(j, s, alat) {
   for (let k = 1; k <= kx; k++) { const o1 = surfOff(j, k); if (alat <= o1) { const o0 = surfOff(j, k - 1), u = (alat - o0) / (o1 - o0); return hillY(j, s, k - 1) * (1 - u) + hillY(j, s, k) * u; } }
   return null;
 }
+// 6 Nov (Kostas: Kooyong Rd buildings "lifted above the road"): Kooyong Rd is flat suburban street; the bake read the street trees and
+// front-garden canopy as ground, raising lawn banks and the houses on them. On these streets the ground stays at kerb height.
+const FLATJ = new Uint8Array(road.length); { let nf = 0; for (let j = 0; j < road.length; j++) { let nm = ''; try { nm = segInfo(road[j].seg).name || ''; } catch (e) { } if (/^Kooyong Road$/.test(nm)) { FLATJ[j] = 1; nf++; } } window.__flatJ = nf; }
+const FLAT_Y = j => road[j].h + KERB_H + 0.25;
+for (let j = 0; j < road.length; j++) if (FLATJ[j]) for (let s = 0; s < 2; s++) { HILL[j * 2 + s] = 0;
+  for (let k = 0; k < NL; k++) { const c = cell(j, s, k); if (GND[c] > FLAT_Y(j)) GND[c] = FLAT_Y(j); }
+  for (let k = 0; k <= HK; k++) { const c = SURF.at3(j, s, k); if (SURF[c] > FLAT_Y(j)) SURF[c] = FLAT_Y(j); } }
 // hill runs (dilated a little so the strip starts and ends cleanly)
 const HILLMESH = new Uint8Array(road.length * 2);
 for (let s = 0; s < 2; s++) { let st = -1; for (let j = 0; j <= road.length; j++) { const h = j < road.length && HILL[j * 2 + s]; if (h && st < 0) st = j; if (!h && st >= 0) { if (j - st >= 6) for (let q = Math.max(0, st - 3); q < Math.min(road.length, j + 3); q++) HILLMESH[q * 2 + s] = 1; st = -1; } } }
@@ -26192,6 +26199,7 @@ const TER = (() => {
   // height check (5 Nov): outside the Kings Park escarpment (Mounts Bay Rd) the lawn rose into green walls where the bake read
   // trees, rail gantries or the other carriageway as ground; there it may rise only 1 in 5 and at most 3 m above the kerb
   for (let j = 0; j < n; j++) { const esc = road[j].d > 5200 && road[j].d < 8900; for (let s = 0; s < 2; s++) for (let k = 0; k < NL; k++) { const c = cell(j, s, k), x = LBASE + LSTEP * k, lim = road[j].h + KERB_H + (esc ? 0.5 * x : Math.min(3, 0.2 * x)); if (T[c] > lim) T[c] = lim; } }
+  for (let j = 0; j < n; j++) if (FLATJ[j]) for (let s = 0; s < 2; s++) for (let k = 0; k < NL; k++) { const c = cell(j, s, k); if (T[c] > FLAT_Y(j)) T[c] = FLAT_Y(j); }   // flat streets (Kooyong Rd)
   return T;
 })();
 // flat-topped or planar-roofed blocks (buildings OpenStreetMap does not have) are "solid": left alone, never treated as canopy
@@ -26301,6 +26309,7 @@ const BLDS = SCN.b.map(([flat, g, roof, roofMin, type, lv, osmid], id) => {
   // is a ray that stopped on a tree canopy, not the ground. Sit the house on the ground; keep its measured height. Hillside lots (ground well off road level) are left alone.
   if (gmax === -Infinity) { const R = road[j], lat = (cx - R.p.x) * R.r.x + (cz - R.p.y) * R.r.y; if (Math.abs(lat) - R.w / 2 > 0) gmax = groundAt(j, lat > 0 ? 1 : 0, 45); }   // set back beyond the corridor: the corridor's outer edge is the nearest ground we know
   let grounded = 0; if (gmax > -Infinity && house && !(st && st.storeys && st.keepBase) && Math.abs(gmax - road[j].h) < 1.6 && base - gmax > 1.0) { grounded = +(base - gmax - 0.15).toFixed(1); base = gmax + 0.15; gmin = Math.min(gmin, base); }
+  if (FLATJ[j] && house && base > FLAT_Y(j) + 0.3) { grounded = +(base - FLAT_Y(j)).toFixed(1); base = FLAT_Y(j); gmin = Math.min(gmin, base); }   // flat streets (Kooyong Rd): the kerb line is the ground
   gmin = Math.max(gmin, base - 6);
   return { id, osmid, pl, cx, cz, j, area, base, gmin, grounded, h, commercial: st ? !house : commercial, house, type, st, drop };
 }).filter(B => !B.drop);
