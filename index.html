@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9019109</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9027175</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -3374,7 +3374,7 @@ function ftPump(budget) {
   const dt = performance.now() - t0; FT.ms += dt; FT.max = Math.max(FT.max, dt); FT.q = ftQ.length; FTD = Infinity;
 }
 // between frames too: a 4 ms slice per timer tick (timers are spaced 4 ms apart, so at most half the idle time goes to this)
-let ftBg = 0; function ftKick() { if (!ftBg && ftQ.length) { ftBg = 1; setTimeout(() => { ftBg = 0; ftPump(window.__ftBudget); ftKick(); }, 0); } }
+let ftBg = 0; function ftKick() { if (!ftBg && ftQ.length) { ftBg = 1; (window.__perf2 ? window.__perf2.idle : (f => setTimeout(() => f(window.__ftBudget), 0)))(b => { ftBg = 0; ftPump(b); ftKick(); }); } }   // perf2: idle time only
 window.__ftPump = ftPump; window.__ftQ = ftQ;   // test harness only
 function* flattenTileInner(sceneObj) {
   FTS = 'start'; sceneObj.updateMatrixWorld(true);
@@ -3389,7 +3389,7 @@ function* flattenTileInner(sceneObj) {
     const L = new Float32Array(cnt * 3), fl = new Uint8Array(cnt), el = new Uint8Array(cnt); const O = new Float32Array(cnt), sc = new Uint8Array(cnt), sb = new Int32Array(cnt).fill(-1); let restoredN = 0;
     let changed = false, anyScenery = false, anyDel = false; const ringAcc = new Map(), lmIdx = new Int16Array(cnt); let anyLm = false;
     FTS = 'verts';
-    for (let n = 0; n < cnt; n++) { if ((n & 63) === 63 && performance.now() > FTD) yield;
+    for (let n = 0; n < cnt; n++) { if ((n & 15) === 15 && performance.now() > FTD) yield;
       v3.fromBufferAttribute(pos, n).applyMatrix4(mw); L[n * 3] = v3.x; L[n * 3 + 1] = v3.y; L[n * 3 + 2] = v3.z; O[n] = v3.y;
       const lmh = window.__dbgNoLM ? null : lmVertex(v3.x, v3.y, v3.z, ringAcc); if (lmh) { if (lmh.sink) { lmIdx[n] = lmh.id + 1; anyLm = true; continue; } }
       const bs = bridgeSink(v3.x, v3.y, v3.z); if (bs != null && !(rastAt(v3.x, v3.z)?.j >= 0 && Math.abs((v3.x - road[rastAt(v3.x, v3.z).j].p.x) * road[rastAt(v3.x, v3.z).j].r.x + (v3.z - road[rastAt(v3.x, v3.z).j].p.y) * road[rastAt(v3.x, v3.z).j].r.y) < road[rastAt(v3.x, v3.z).j].w / 2 + GUTTER)) { L[n * 3 + 1] = bs; fl[n] = 1; changed = true; continue; }
@@ -3428,14 +3428,14 @@ function* flattenTileInner(sceneObj) {
     FTS = 'lm';
     // landmarks: measure the ground around each one, then sink Google's copy of it out of sight
     for (const [Lm, a] of ringAcc) if (a.n >= 4) lmSetBase(Lm, a.min, a.n);
-    if (anyLm) for (let n = 0; n < cnt; n++) { if ((n & 63) === 63 && performance.now() > FTD) yield; const id = lmIdx[n]; if (!id) continue; const Lm = LM[id - 1]; if (Lm.base == null) { if (!Lm.flat && Lm.kind.startsWith('lmx-')) { fl[n] = 6; anyDel = changed = true; } continue; } const y = Math.min(L[n * 3 + 1], Lm.base - (Lm.flat ? 0.05 : 0.6)); if (y !== L[n * 3 + 1]) { L[n * 3 + 1] = y; fl[n] = 3; changed = true; } }
+    if (anyLm) for (let n = 0; n < cnt; n++) { if ((n & 15) === 15 && performance.now() > FTD) yield; const id = lmIdx[n]; if (!id) continue; const Lm = LM[id - 1]; if (Lm.base == null) { if (!Lm.flat && Lm.kind.startsWith('lmx-')) { fl[n] = 6; anyDel = changed = true; } continue; } const y = Math.min(L[n * 3 + 1], Lm.base - (Lm.flat ? 0.05 : 0.6)); if (y !== L[n * 3 + 1]) { L[n * 3 + 1] = y; fl[n] = 3; changed = true; } }
     FTS = 'pull';
     // pull down canopy vertices still standing next to flattened ones, so no spikes are left behind
     if (changed) {
       const idx = m.geometry.index, nt = idx ? idx.count / 3 : cnt / 3, I = idx ? idx.array : null;
       for (let pass = 0; pass < 3; pass++) {
         let moved = 0;
-        for (let t = 0; t < nt; t++) { if ((t & 63) === 63 && performance.now() > FTD) yield;
+        for (let t = 0; t < nt; t++) { if ((t & 15) === 15 && performance.now() > FTD) yield;
           const a = I ? I[t * 3] : t * 3, b = I ? I[t * 3 + 1] : t * 3 + 1, c = I ? I[t * 3 + 2] : t * 3 + 2;
           if (fl[a] === 6 || fl[b] === 6 || fl[c] === 6) continue;   // this triangle is deleted anyway
           let lo = Infinity; if (fl[a] >= 1) lo = L[a * 3 + 1]; if (fl[b] >= 1) lo = Math.min(lo, L[b * 3 + 1]); if (fl[c] >= 1) lo = Math.min(lo, L[c * 3 + 1]);
@@ -3453,7 +3453,7 @@ function* flattenTileInner(sceneObj) {
       const idx = m.geometry.index, nt = idx ? idx.count / 3 : cnt / 3, I = idx ? idx.array : null;
       for (let pass = 0; pass < 8; pass++) {
         let moved = 0;
-        for (let t = 0; t < nt; t++) { if ((t & 63) === 63 && performance.now() > FTD) yield;
+        for (let t = 0; t < nt; t++) { if ((t & 15) === 15 && performance.now() > FTD) yield;
           const a = I ? I[t * 3] : t * 3, b = I ? I[t * 3 + 1] : t * 3 + 1, c = I ? I[t * 3 + 2] : t * 3 + 2;
           if (!(sc[a] || sc[b] || sc[c]) || fl[a] === 6 || fl[b] === 6 || fl[c] === 6) continue;
           let hi = -Infinity; for (const v of [a, b, c]) if (!fl[v]) hi = Math.max(hi, L[v * 3 + 1]);
@@ -3469,7 +3469,7 @@ function* flattenTileInner(sceneObj) {
       const idx = m.geometry.index, nt = idx ? idx.count / 3 : cnt / 3, I = idx ? idx.array : null;
       for (let pass = 0; pass < 12; pass++) {
         let moved = 0;
-        for (let t = 0; t < nt; t++) { if ((t & 63) === 63 && performance.now() > FTD) yield;
+        for (let t = 0; t < nt; t++) { if ((t & 15) === 15 && performance.now() > FTD) yield;
           const a = I ? I[t * 3] : t * 3, b = I ? I[t * 3 + 1] : t * 3 + 1, c = I ? I[t * 3 + 2] : t * 3 + 2;
           const id = sb[a] >= 0 ? sb[a] : sb[b] >= 0 ? sb[b] : sb[c]; if (id < 0) continue;
           const B = BLDS[id];
@@ -3486,11 +3486,11 @@ function* flattenTileInner(sceneObj) {
       const find = x => { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; };
       const tri = (t) => I ? [I[t * 3], I[t * 3 + 1], I[t * 3 + 2]] : [t * 3, t * 3 + 1, t * 3 + 2];
       const keep = (a, b, c) => { if (fl[a] === 6 || fl[b] === 6 || fl[c] === 6) return false; const fy = Math.max(L[a * 3 + 1], L[b * 3 + 1], L[c * 3 + 1]) - Math.min(L[a * 3 + 1], L[b * 3 + 1], L[c * 3 + 1]); return !((fl[a] || fl[b] || fl[c]) && fy > 4); };
-      for (let t = 0; t < nt; t++) { if ((t & 63) === 63 && performance.now() > FTD) yield; const [a, b, c] = tri(t); if (a === b || !keep(a, b, c)) continue; const ra = find(a), rb = find(b), rc = find(c); par[rb] = ra; par[find(rc)] = ra; }
+      for (let t = 0; t < nt; t++) { if ((t & 15) === 15 && performance.now() > FTD) yield; const [a, b, c] = tri(t); if (a === b || !keep(a, b, c)) continue; const ra = find(a), rb = find(b), rc = find(c); par[rb] = ra; par[find(rc)] = ra; }
       const nTri = new Map(), minY = new Map(), maxY = new Map(), anyFl = new Map(), sunkFl = new Map(), cxs = new Map();
-      for (let t = 0; t < nt; t++) { if ((t & 63) === 63 && performance.now() > FTD) yield; const [a, b, c] = tri(t); if (a === b || !keep(a, b, c)) continue; const r = find(a); nTri.set(r, (nTri.get(r) || 0) + 1); for (const v of [a, b, c]) { const y = L[v * 3 + 1]; if (!(minY.get(r) <= y)) { minY.set(r, y); cxs.set(r, v); } if (!(maxY.get(r) >= y)) maxY.set(r, y); if (fl[v] && fl[v] !== 5 && fl[v] !== 6) anyFl.set(r, 1); if (fl[v] === 1 || fl[v] === 5) sunkFl.set(r, 1); } }
+      for (let t = 0; t < nt; t++) { if ((t & 15) === 15 && performance.now() > FTD) yield; const [a, b, c] = tri(t); if (a === b || !keep(a, b, c)) continue; const r = find(a); nTri.set(r, (nTri.get(r) || 0) + 1); for (const v of [a, b, c]) { const y = L[v * 3 + 1]; if (!(minY.get(r) <= y)) { minY.set(r, y); cxs.set(r, v); } if (!(maxY.get(r) >= y)) maxY.set(r, y); if (fl[v] && fl[v] !== 5 && fl[v] !== 6) anyFl.set(r, 1); if (fl[v] === 1 || fl[v] === 5) sunkFl.set(r, 1); } }
       const kill = new Set(); let kn = 0;
-      for (const [r, k] of nTri) { if ((++kn & 63) === 63 && performance.now() > FTD) yield;
+      for (const [r, k] of nTri) { if ((++kn & 15) === 15 && performance.now() > FTD) yield;
         if (k > 400) continue;
         // round E: a small piece that is part sunk, part still standing tall beside the road is a torn canopy remnant (Surrey Rd), not scenery worth keeping
         if (sunkFl.get(r) && !window.__dbgNoRemnant) { const v = cxs.get(r), ra = rastAt(L[v * 3], L[v * 3 + 2]); if (ra && ra.j >= 0 && ra.b < 0) { const rd = road[ra.j], lat = Math.abs((L[v * 3] - rd.p.x) * rd.r.x + (L[v * 3 + 2] - rd.p.y) * rd.r.y); if (lat - rd.w / 2 < CLEAR_W + 40 && maxY.get(r) - minY.get(r) > 3 && !waterCellAt(L[v * 3], L[v * 3 + 2], ra, true)) { kill.add(r); continue; } } }
@@ -3500,14 +3500,14 @@ function* flattenTileInner(sceneObj) {
         if (lat - rd.w / 2 < 180 && minY.get(r) > rd.h + 3.5) kill.add(r);
         else if (k <= 60 && lat - rd.w / 2 < CLEAR_W && ra.b < 0 && !waterCellAt(L[v * 3], L[v * 3 + 2], ra, false)) kill.add(r);   // a small fragment of a Google building left standing in the corridor (the bake's solid cells are 3 m coarse)
       }
-      if (kill.size) for (let t = 0; t < nt; t++) { if ((t & 63) === 63 && performance.now() > FTD) yield; const [a, b, c] = tri(t); if (a !== b && kill.has(find(a))) { if (I) { I[t * 3 + 1] = a; I[t * 3 + 2] = a; } else for (const v of [b, c]) { L[v * 3] = L[a * 3]; L[v * 3 + 1] = L[a * 3 + 1]; L[v * 3 + 2] = L[a * 3 + 2]; fl[v] = fl[v] || 4; } } }
+      if (kill.size) for (let t = 0; t < nt; t++) { if ((t & 15) === 15 && performance.now() > FTD) yield; const [a, b, c] = tri(t); if (a !== b && kill.has(find(a))) { if (I) { I[t * 3 + 1] = a; I[t * 3 + 2] = a; } else for (const v of [b, c]) { L[v * 3] = L[a * 3]; L[v * 3 + 1] = L[a * 3 + 1]; L[v * 3 + 2] = L[a * 3 + 2]; fl[v] = fl[v] || 4; } } }
       if (kill.size) { changed = true; if (I) idx.needsUpdate = true; FLOATK.n += kill.size; }
     }
     FTS = 'drop';
     // nothing may hang over the road: drop any triangle whose middle sits above the carriageway or footpath
     {
       const idx = m.geometry.index, nt = idx ? idx.count / 3 : cnt / 3, I = idx ? idx.array : null; let dropped = 0;
-      for (let t = 0; t < nt; t++) { if ((t & 63) === 63 && performance.now() > FTD) yield;
+      for (let t = 0; t < nt; t++) { if ((t & 15) === 15 && performance.now() > FTD) yield;
         const a = I ? I[t * 3] : t * 3, b = I ? I[t * 3 + 1] : t * 3 + 1, c = I ? I[t * 3 + 2] : t * 3 + 2;
         const cx = (L[a * 3] + L[b * 3] + L[c * 3]) / 3, cz = (L[a * 3 + 2] + L[b * 3 + 2] + L[c * 3 + 2]) / 3, cy = (L[a * 3 + 1] + L[b * 3 + 1] + L[c * 3 + 1]) / 3;
         const fy0 = Math.max(L[a * 3 + 1], L[b * 3 + 1], L[c * 3 + 1]) - Math.min(L[a * 3 + 1], L[b * 3 + 1], L[c * 3 + 1]);
@@ -3530,7 +3530,7 @@ function* flattenTileInner(sceneObj) {
     FTS = 'write';
     if (window.__dbgKeep) m.userData.dbg = { L, fl, sc, O, el };   // test harness only
     if (changed) {
-      for (let n = 0; n < cnt; n++) { if ((n & 63) === 63 && performance.now() > FTD) yield; if (fl[n]) { v3.set(L[n * 3], L[n * 3 + 1], L[n * 3 + 2]).applyMatrix4(inv); pos.setXYZ(n, v3.x, v3.y, v3.z); } }
+      for (let n = 0; n < cnt; n++) { if ((n & 15) === 15 && performance.now() > FTD) yield; if (fl[n]) { v3.set(L[n * 3], L[n * 3 + 1], L[n * 3 + 2]).applyMatrix4(inv); pos.setXYZ(n, v3.x, v3.y, v3.z); } }
       pos.needsUpdate = true; m.geometry.computeBoundingSphere(); m.geometry.computeBoundingBox();
     }
   }
@@ -21811,7 +21811,8 @@ LMX.mprEast = function (H) {
     // the game's own road height at each anchor (the kerb is ~0.15 above it) is the most reliable ground; the measured ring
     // (min Google vertex around the anchor, road vertices excluded) is only the fallback when no road point is within 14 m
     const G = window.__game, road = G && (G.road || G.TRK);
-    const n = S.an.length, raw = S.an.map((ob, k) => { if (road && road.length) { const w = S.aw[k]; let bd = Infinity, bh = null; for (const r of road) { const d = (r.p.x - w.x) ** 2 + (r.p.y - w.z) ** 2; if (d < bd) { bd = d; bh = r.h; } } if (bd < 196) return bh + 0.15; } return ob.visible ? ob.position.y : null; });
+    if (road && road.length && (!S.rh || S.rhRoad !== road)) { S.rhRoad = road; S.rh = S.aw.map(w => { let bd = Infinity, bh = null; for (const r of road) { const d = (r.p.x - w.x) ** 2 + (r.p.y - w.z) ** 2; if (d < bd) { bd = d; bh = r.h; } } return bd < 196 ? bh + 0.15 : null; }); }   // perf2: the road never moves, so each anchor's road height is looked up once
+    const n = S.an.length, raw = S.an.map((ob, k) => { const v = S.rh ? S.rh[k] : null; if (v != null) return v; return ob.visible ? ob.position.y : null; });
     if (!H.preview && raw.every(v => v == null)) return;
     const f = raw.map((v, k) => { if (v != null) return v; for (let d = 1; d < n; d++) { if (raw[k - d] != null) return raw[k - d]; if (raw[k + d] != null) return raw[k + d]; } return 0; });
     const y = f.map((v, k) => n < 3 ? v : [f[Math.max(0, k - 1)], v, f[Math.min(n - 1, k + 1)]].sort((a, b) => a - b)[1]);
@@ -22156,7 +22157,8 @@ LMX.mprEast2 = function (H) {
     // the game's own road height at each anchor (the kerb is ~0.15 above it) is the most reliable ground; the measured ring
     // (min Google vertex around the anchor, road vertices excluded) is only the fallback when no road point is within 14 m
     const G = window.__game, road = G && (G.road || G.TRK);
-    const n = S.an.length, raw = S.an.map((ob, k) => { if (road && road.length) { const w = S.aw[k]; let bd = Infinity, bh = null; for (const r of road) { const d = (r.p.x - w.x) ** 2 + (r.p.y - w.z) ** 2; if (d < bd) { bd = d; bh = r.h; } } if (bd < 196) return bh + 0.15; } return ob.visible ? ob.position.y : null; });
+    if (road && road.length && (!S.rh || S.rhRoad !== road)) { S.rhRoad = road; S.rh = S.aw.map(w => { let bd = Infinity, bh = null; for (const r of road) { const d = (r.p.x - w.x) ** 2 + (r.p.y - w.z) ** 2; if (d < bd) { bd = d; bh = r.h; } } return bd < 196 ? bh + 0.15 : null; }); }   // perf2: the road never moves, so each anchor's road height is looked up once
+    const n = S.an.length, raw = S.an.map((ob, k) => { const v = S.rh ? S.rh[k] : null; if (v != null) return v; return ob.visible ? ob.position.y : null; });
     if (!H.preview && raw.every(v => v == null)) return;
     const f = raw.map((v, k) => { if (v != null) return v; for (let d = 1; d < n; d++) { if (raw[k - d] != null) return raw[k - d]; if (raw[k + d] != null) return raw[k + d]; } return 0; });
     const y = f.map((v, k) => n < 3 ? v : [f[Math.max(0, k - 1)], v, f[Math.min(n - 1, k + 1)]].sort((a, b) => a - b)[1]);
@@ -22501,7 +22503,8 @@ LMX.mprEast3 = function (H) {
     // the game's own road height at each anchor (the kerb is ~0.15 above it) is the most reliable ground; the measured ring
     // (min Google vertex around the anchor, road vertices excluded) is only the fallback when no road point is within 14 m
     const G = window.__game, road = G && (G.road || G.TRK);
-    const n = S.an.length, raw = S.an.map((ob, k) => { if (road && road.length) { const w = S.aw[k]; let bd = Infinity, bh = null; for (const r of road) { const d = (r.p.x - w.x) ** 2 + (r.p.y - w.z) ** 2; if (d < bd) { bd = d; bh = r.h; } } if (bd < 196) return bh + 0.15; } return ob.visible ? ob.position.y : null; });
+    if (road && road.length && (!S.rh || S.rhRoad !== road)) { S.rhRoad = road; S.rh = S.aw.map(w => { let bd = Infinity, bh = null; for (const r of road) { const d = (r.p.x - w.x) ** 2 + (r.p.y - w.z) ** 2; if (d < bd) { bd = d; bh = r.h; } } return bd < 196 ? bh + 0.15 : null; }); }   // perf2: the road never moves, so each anchor's road height is looked up once
+    const n = S.an.length, raw = S.an.map((ob, k) => { const v = S.rh ? S.rh[k] : null; if (v != null) return v; return ob.visible ? ob.position.y : null; });
     if (!H.preview && raw.every(v => v == null)) return;
     const f = raw.map((v, k) => { if (v != null) return v; for (let d = 1; d < n; d++) { if (raw[k - d] != null) return raw[k - d]; if (raw[k + d] != null) return raw[k + d]; } return 0; });
     const y = f.map((v, k) => n < 3 ? v : [f[Math.max(0, k - 1)], v, f[Math.min(n - 1, k + 1)]].sort((a, b) => a - b)[1]);
@@ -27504,11 +27507,11 @@ function* farCanopy(m, L, fl, cnt) {
   if (!near) return false; FCD.near++;
   if (performance.now() > FTD) yield; const px = texPixels(m.material && m.material.map); if (!px) return false; FCD.px++; if (performance.now() > FTD) yield;   // reading the texture back is one of the larger single steps
   // local ground: lowest vertex per 6 m cell, then the lowest of the 3 x 3 neighbourhood
-  const GC = 6, low = new Map(); for (let n = 0; n < cnt; n++) { if ((n & 63) === 63 && performance.now() > FTD) yield; if (fl[n]) continue; const k = Math.floor(L[n * 3] / GC) * 65536 + Math.floor(L[n * 3 + 2] / GC), y = L[n * 3 + 1], o = low.get(k); if (o === undefined || y < o) low.set(k, y); }
+  const GC = 6, low = new Map(); for (let n = 0; n < cnt; n++) { if ((n & 15) === 15 && performance.now() > FTD) yield; if (fl[n]) continue; const k = Math.floor(L[n * 3] / GC) * 65536 + Math.floor(L[n * 3 + 2] / GC), y = L[n * 3 + 1], o = low.get(k); if (o === undefined || y < o) low.set(k, y); }
   // ground under a vertex: the lowest vertex in the 3 x 3 cells around it; on a slope (the lows differ by more than 5 m) there is no trustworthy ground, so nothing is pulled down there
   const ground = (x, z) => { const cx = Math.floor(x / GC), cz = Math.floor(z / GC); let g = Infinity, hi = -Infinity; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const o = low.get((cx + a) * 65536 + cz + b); if (o !== undefined) { if (o < g) g = o; if (o > hi) hi = o; } } return hi - g > 5 ? Infinity : g; };
   let moved = 0;
-  for (let n = 0; n < cnt; n++) { if ((n & 63) === 63 && performance.now() > FTD) yield;
+  for (let n = 0; n < cnt; n++) { if ((n & 15) === 15 && performance.now() > FTD) yield;
     if (fl[n]) continue; const x = L[n * 3], y = L[n * 3 + 1], z = L[n * 3 + 2];
     const j = NEARG.get(Math.floor(x / NEAR_C) * 65536 + Math.floor(z / NEAR_C)); if (j === undefined) continue;
     const ra = rastAt(x, z); if (ra && ra.b >= 0) continue;                       // an OSM building
@@ -27529,7 +27532,7 @@ await __LDstep(30);
 function* treeSpread(m, L, fl, cnt) {
   let near = false; for (let n = 0; n < cnt; n += 7) if (NEARG.has(Math.floor(L[n * 3] / NEAR_C) * 65536 + Math.floor(L[n * 3 + 2] / NEAR_C))) { near = true; break; }
   if (!near) return false;
-  const GC = 6, low = new Map(); for (let n = 0; n < cnt; n++) { if ((n & 63) === 63 && performance.now() > FTD) yield; if (fl[n]) continue; const k = Math.floor(L[n * 3] / GC) * 65536 + Math.floor(L[n * 3 + 2] / GC), y = L[n * 3 + 1], o = low.get(k); if (o === undefined || y < o) low.set(k, y); }
+  const GC = 6, low = new Map(); for (let n = 0; n < cnt; n++) { if ((n & 15) === 15 && performance.now() > FTD) yield; if (fl[n]) continue; const k = Math.floor(L[n * 3] / GC) * 65536 + Math.floor(L[n * 3 + 2] / GC), y = L[n * 3 + 1], o = low.get(k); if (o === undefined || y < o) low.set(k, y); }
   const ground = (x, z) => { const cx = Math.floor(x / GC), cz = Math.floor(z / GC); let g = Infinity, hi = -Infinity; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const o = low.get((cx + a) * 65536 + cz + b); if (o !== undefined) { if (o < g) g = o; if (o > hi) hi = o; } } return hi - g > 5 ? Infinity : g; };
   const idx = m.geometry.index, I = idx ? idx.array : null, nt = I ? I.length / 3 : cnt / 3;
   const seed = v => fl[v] === 5 || fl[v] === 6 || fl[v] === 1 || fl[v] === 7 || fl[v] === 2;   // 2: pressed under our road or another carriageway (Orrong Rd median trees)
@@ -27542,7 +27545,7 @@ function* treeSpread(m, L, fl, cnt) {
   let moved = 0;
   for (let pass = 0; pass < 12; pass++) {
     let n = 0;
-    for (let t = 0; t < nt; t++) { if ((t & 63) === 63 && performance.now() > FTD) yield; const a = I ? I[t * 3] : t * 3, b = I ? I[t * 3 + 1] : t * 3 + 1, c = I ? I[t * 3 + 2] : t * 3 + 2; if (a === b) continue;
+    for (let t = 0; t < nt; t++) { if ((t & 15) === 15 && performance.now() > FTD) yield; const a = I ? I[t * 3] : t * 3, b = I ? I[t * 3 + 1] : t * 3 + 1, c = I ? I[t * 3 + 2] : t * 3 + 2; if (a === b) continue;
       const sa = seed(a), sb = seed(b), sc = seed(c); if (!(sa || sb || sc) || (sa && sb && sc)) continue;
       const sy = Math.min(sa ? L[a * 3 + 1] : Infinity, sb ? L[b * 3 + 1] : Infinity, sc ? L[c * 3 + 1] : Infinity);
       for (const v of [a, b, c]) if (!fl[v] && may(v, sy)) { L[v * 3 + 1] = tgt(v, sy); fl[v] = 7; n++; } }
@@ -32994,12 +32997,12 @@ PTX.mods.people = G => {
   ray.camera = G.camera; let rr = 0; [MH, MB, MD, MS].forEach(m => MINE.add(m));
   function refine(p, q, now) {
     p.rf[q] = now; ORG.set(p.x[q], p.top[q], p.z[q]); ray.set(ORG, DOWN); ray.far = p.top[q] - p.h0[q] + 1.5;
-    let hits; try { hits = ray.intersectObjects(scene.children, true); } catch (e) { return; }
+    let hits; try { hits = ray.intersectObjects(window.__perf2 ? window.__perf2.groundCands(ORG.x, ORG.z) : scene.children, true); } catch (e) { return; }   // perf2: only the ground under this person, not the whole scene
     for (const h of hits) { if (MINE.has(h.object) || !h.object.visible || h.object.isSprite || h.object.isLine || h.object.isPoints) continue; const m = h.object.material; if (m && (m.transparent && m.opacity < 0.5)) continue; p.h[q] = h.point.y; return; }
   }
   function refineSome() {
-    const now = performance.now() / 1000; let budget = 4;
-    for (let k = 0; k < A.length && budget > 0; k++) { const ag = A[(rr + k) % A.length]; if (ag.kind !== 0) continue; const p = paths[ag.pi];
+    const now = performance.now() / 1000; let budget = 4; const tEnd = performance.now() + (window.__perf2 ? window.__perf2.rayMs : 99);   // perf2: time-boxed
+    for (let k = 0; k < A.length && budget > 0 && performance.now() < tEnd; k++) { const ag = A[(rr + k) % A.length]; if (ag.kind !== 0) continue; const p = paths[ag.pi];
       for (let q = Math.max(0, ag.q - 2); q <= Math.min(p.n - 1, ag.q + 4) && budget > 0; q++) if (!p.rf[q] || now - p.rf[q] > 30) { refine(p, q, now); budget--; } }
     rr = (rr + 3) % Math.max(1, A.length);
   }
@@ -40522,7 +40525,7 @@ await __LDstep(82);
 // ---- menu5 (6 Nov): compile the scene's shaders in the background from the moment Drive is pressed (renderer.compileAsync),
 // so the run's loading screen and its first frames don't freeze. loadingStep waits for it (max 15 s) before the countdown.
 let warmP = null; window.__warmDone = true;
-window.__warm = () => warmP || (warmP = (window.__warmDone = false, (renderer.compileAsync ? renderer.compileAsync(scene, camera) : Promise.resolve())
+window.__warm = () => warmP || (warmP = (window.__warmDone = false, (window.__perf2 ? window.__perf2.compileLike(renderer, scene, camera, fxLevel > 0 ? composer.renderTarget1 : null) : renderer.compileAsync ? renderer.compileAsync(scene, camera) : Promise.resolve())   /* perf2: compile for the composer's render state, which is what the drive uses */
   .catch(e => console.warn('warm-up compile', e)).then(() => { window.__warmDone = true; })));
 await __LDstep(83);
 // ---- extras/menu: arcade title screen, main menu, race setup and a Settings menu that holds every option (extras/menu/perth-menu.js)
@@ -40562,13 +40565,14 @@ function loadingStep() {
   const q = tiles.stats.queued + tiles.stats.downloading + tiles.stats.parsing, waited = performance.now() - loadStart;
   $('loadsub').textContent = `Sharpening the street (${q} tiles to go)`;
   if (((waited > 2500 && q < 6) || waited > 20000) && (window.__warmDone || waited > 15000)) {
-    const go = () => { show('loading', false); hudOn(true); state = 'countdown'; countdownAt = performance.now();
-      { const bt = X ? X.bestTime() : best?.time; $('bestline').textContent = bt && !FREE() ? 'Best ' + fmt(bt) : ''; $('bestline').hidden = FREE(); } };
+    const go = () => { state = 'countdown'; countdownAt = Infinity; (window.__perf2 && window.__perf2.hold ? window.__perf2.hold(renderer, scene, camera, fxLevel > 0 ? composer.renderTarget1 : null) : Promise.resolve()).then(() => { show('loading', false); hudOn(true); countdownAt = performance.now();   // perf2: the first frames run behind the loading card and every shader is compiled there, so no compile freeze shows in the countdown
+      { const bt = X ? X.bestTime() : best?.time; $('bestline').textContent = bt && !FREE() ? 'Best ' + fmt(bt) : ''; $('bestline').hidden = FREE(); } }); };
     if (csOn() && !introPlayed) { introPlayed = true; show('loading', false); state = 'cutscene'; csGet().play('intro', { dir: DIR }).then(go, go); }   // extras/cutscenes: intro at 66A before the countdown
     else go();
   }
 }
 function countdownStep() {
+  if (!isFinite(countdownAt)) return;   // perf2: still warming up behind the loading card
   const s = (performance.now() - countdownAt) / 1000;
   const n = 3 - Math.floor(s);
   if (n > 0) { if ($('toast').dataset.n !== String(n)) { $('toast').dataset.n = String(n); toast(String(n), n === 3 ? TXT[DIR].start : '', 1100); audio.countdown(n); } }
@@ -40625,6 +40629,74 @@ const autoQ = (() => {
         else if (fps > 56 && step > 0 && ++good >= 4) { undo(); $('qnote').textContent = ''; toast('Full quality back', '', 900); } }
     },
   };
+})();
+
+// extras/perf2 (6 Nov 2026, thread "Smooth out choppy gameplay"): scheduling fixes that leave the picture unchanged.
+//  - groundCands(x, z): the short list of objects a downward ground ray at (x, z) can possibly hit: the Google tiles group
+//    (its own raycast walks the tile tree) plus our static meshes whose footprint covers the point. Big static meshes get a
+//    BVH (three-mesh-bvh, MIT) built in idle time, so a ray through a merged building chunk no longer tests every triangle.
+//    Used by the pedestrian height refinement in perth-traffic.js instead of raycasting the whole scene.
+//  - rayMs: how long that refinement may spend per frame (was: 4 rays whatever they cost).
+//  - idle(fn): run fn in browser idle time (requestIdleCallback) instead of a 0 ms timer, for the Google tile clean-up pump.
+//  - hold(renderer, scene, camera): the run's first frames behind the loading card + a compile of every material in the scene.
+window.__perf2 = (() => {
+  const P = { rayMs: 1.2, stats: { rebuilds: 0, cands: 0, calls: 0, bvh: 0, bvhMs: 0, bvhQueue: 0, raysSkipped: 0 }, bvh: null };
+  let idx = [], built = 0, tilesGroup = null; const queue = [];   // meshes waiting for a BVH, nearest first
+  const box = new THREE.Box3(); const tri = g => g.index ? g.index.count / 3 : (g.attributes.position ? g.attributes.position.count / 3 : 0);
+  const BVH_URL = 'https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.3/build/index.module.js';
+  import(BVH_URL).then(M => { P.bvh = M; THREE.Mesh.prototype.raycast = M.acceleratedRaycast; }).catch(e => { console.warn('perf2: three-mesh-bvh not loaded, rays stay slow', e); P.bvh = false; });
+  function rebuild() {
+    const G = window.__game; if (!G) return; const scene = G.scene; tilesGroup = G.tiles ? G.tiles.group : null; idx = [];
+    scene.traverse(o => {
+      if (!o.isMesh || o.isInstancedMesh || o.isSprite || o.isLine || o.isPoints) return;
+      let p = o; while (p) { if (p === tilesGroup || p.userData.noGround) return; p = p.parent; }
+      const m = o.material; if (!m || (m.transparent && m.opacity < 0.5)) return;
+      const g = o.geometry; if (!g.boundingBox) g.computeBoundingBox();
+      if (!g.boundingBox || g.boundingBox.isEmpty()) return;
+      box.copy(g.boundingBox).applyMatrix4(o.matrixWorld);
+      if (!isFinite(box.min.x) || box.max.x - box.min.x > 4000) return;
+      idx.push({ o, g, n: tri(g), x0: box.min.x - 0.8, x1: box.max.x + 0.8, z0: box.min.z - 0.8, z1: box.max.z + 0.8 });
+    });
+    built = performance.now(); P.stats.rebuilds++;
+  }
+  // a BVH for meshes over 300 triangles; small ones are cheap to test as they are. Built in idle time, nearest first.
+  const want = (e, x, z) => { if (e.n <= 300 || e.g.boundsTree || e.queued) return; e.queued = true; e.d = Math.hypot((e.x0 + e.x1) / 2 - x, (e.z0 + e.z1) / 2 - z); queue.push(e); };
+  P.buildSome = (ms = 2.5) => {
+    if (!P.bvh || !queue.length) return; const t0 = performance.now(); queue.sort((a, b) => a.d - b.d);
+    while (queue.length && performance.now() - t0 < ms) { const e = queue.shift(); e.queued = false; if (e.g.boundsTree) continue; try { e.g.boundsTree = new P.bvh.MeshBVH(e.g, { maxLeafTris: 8 }); P.stats.bvh++; } catch (err) { e.n = 0; } }
+    P.stats.bvhMs += performance.now() - t0; P.stats.bvhQueue = queue.length;
+    if (queue.length) P.idle(() => P.buildSome(2.5));
+  };
+  P.groundCands = (x, z) => {
+    if (performance.now() - built > 20000) rebuild();
+    const out = tilesGroup ? [tilesGroup] : []; let pending = false;
+    for (let i = 0; i < idx.length; i++) { const e = idx[i]; if (!(x >= e.x0 && x <= e.x1 && z >= e.z0 && z <= e.z1) || !e.o.visible) continue;
+      if (e.n > 300 && !e.g.boundsTree && P.bvh !== false) { want(e, x, z); pending = true; continue; }   // not yet indexed: skip it this time, the tree is on its way
+      out.push(e.o); }
+    if (pending) { P.stats.raysSkipped++; if (queue.length) P.idle(() => P.buildSome(2.5)); }
+    P.stats.calls++; P.stats.cands += out.length; return out;
+  };
+  P.rebuild = rebuild;
+  let idleArmed = false;
+  P.idle = fn => { if (window.requestIdleCallback) requestIdleCallback(d => fn(d.didTimeout ? 2 : Math.max(0.5, Math.min(window.__ftBudget || 4, d.timeRemaining() - 0.5))), { timeout: 250 }); else setTimeout(() => fn(window.__ftBudget || 4), 0); };
+  // hold(): the run's first frames are drawn while the loading card still covers the screen, the ground index and the nearby
+  // BVHs are built, then every material now in the scene is compiled (in parallel where the GPU driver allows it) before the
+  // countdown shows: the one-off freezes that used to land in the first seconds of the drive happen out of sight instead.
+  // compileLike(): the game draws through the EffectComposer (into a render target: no tone mapping in the scene pass, linear
+  // output), but renderer.compile() builds shaders for the direct-to-screen state, so the loading-screen warm-up compiled every
+  // material with the wrong settings and each one compiled AGAIN on first sight during the drive. Pointing the renderer at the
+  // composer's render target while compiling makes the warm-up produce the programs the drive really uses.
+  P.compileLike = (R, scene, camera, rt) => { if (rt) R.setRenderTarget(rt); try { return R.compileAsync ? R.compileAsync(scene, camera) : Promise.resolve(R.compile(scene, camera)); } finally { R.setRenderTarget(null); } };
+  P.hold = (R, scene, camera, rt) => new Promise(res => {
+    let n = 0, done = false; const t0 = performance.now();
+    const fin = why => { if (done) return; done = true; P.stats.hold = { why, ms: Math.round(performance.now() - t0), programs: R.info.programs.length, bvh: P.stats.bvh }; res(); };
+    const step = () => { if (++n < 4) return requestAnimationFrame(step);
+      try { rebuild(); const C = window.__game && window.__game.C; if (C) { for (const e of idx) if (Math.abs((e.x0 + e.x1) / 2 - C.x) < 260 && Math.abs((e.z0 + e.z1) / 2 - C.z) < 260) want(e, C.x, C.z); P.buildSome(400); } } catch (e) { console.warn('perf2 ground index', e); }
+      try { const pr = P.compileLike(R, scene, camera, rt); pr.then(() => fin('compiled'), e => { console.warn('perf2 warm-up', e); fin('error'); }); }
+      catch (e) { console.warn('perf2 warm-up', e); fin('error'); } };
+    requestAnimationFrame(step); setTimeout(() => fin('timeout'), 8000);
+  });
+  return P;
 })();
 
 await __LDstep(85);
@@ -40836,7 +40908,7 @@ function loop(now) {
   sun.position.set(C.x + sunDir.x * 60, C.y + sunDir.y * 60, C.z + sunDir.z * 60); sun.target.position.set(C.x, C.y, C.z);
   sky.position.copy(camera.position);
   updateScenery(now / 1000); updateLandmarks(Math.min(0.1, dt || 0));
-  ftPump(state === 'drive' || state === 'countdown' ? window.__ftBudget * (ftQ.length > 6 ? 1.5 : 1) : 30);   // Google tiles waiting for clean-up: a few ms a frame while driving, more on the loading screen
+  ftPump(state === 'drive' || state === 'countdown' ? window.__ftBudget * (ftQ.length > 6 ? 1.5 : 1) * (rawDt > 0.0185 && ftQ.length <= 6 ? 0.35 : 1) : 30);   // perf2: a smaller slice when the last frame ran long and there is no backlog   // Google tiles waiting for clean-up: a few ms a frame while driving, more on the loading screen
   if (tiles) { camera.updateMatrixWorld(); tiles.update(); if (state === 'loading') loadingStep(); }
   if (window.__perfBatch) { window.__perfBatch.cullFar(camera, traffic, roadGroup); window.__perfBatch.cullFar(camera, oncoming, null); }
   if (window.__LOOK) window.__LOOK.update(dt, now / 1000);
