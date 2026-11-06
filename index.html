@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=8979691</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=8999731</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -29609,6 +29609,268 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
   }
 
   window.PerthExtras = { create, codec, version: VERSION, fmt, fmtDelta, Rec, Recorder };
+})();
+
+/* "Not the Salad!" world leaderboard. 6 Nov 2026.
+ * Plain script, no dependencies. Sits on top of the ghost/best-times module (perth-extras.js): it wraps
+ * window.__game.X.go / finish, and decorates the results card (#pxResults) and the Best times card (#pxBoard)
+ * when they appear. If the server is unreachable the game carries on exactly as before (local times only).
+ * Backend: Supabase, three database functions (lb_start, lb_submit, lb_board). See schema.sql / INTEGRATION.md.
+ * Forward route only ("fwd-v1").
+ */
+(function () {
+  'use strict';
+  const CFG = Object.assign({ url: 'https://ctbsylrsombhinergria.supabase.co', key: 'sb_publishable_UMHIYq-3RURfdsQht5Ha0A_n8CBZfMF', route: 'fwd-v1', owner: 'Kostas' }, window.NTS_ONLINE || {});
+  const ON = /^https:\/\//.test(CFG.url) && CFG.key && CFG.key.indexOf('__') !== 0;
+  const LS = { dev: 'nts-device', name: 'nts-name', owner: 'nts-owner', pend: 'nts-pending' };
+  const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = ms => { if (ms == null || !isFinite(ms)) return '–'; const s = ms / 1000, m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r.toFixed(2).padStart(5, '0')}`; };
+  const gap = ms => (ms < 0 ? '−' : '+') + (Math.abs(ms) / 1000).toFixed(2) + ' s';
+  const ord = n => n + ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'));
+
+  // ---------------------------------------------------------------- identity
+  // A random secret per browser. The server only ever stores its hash. It "owns" the name first used with it.
+  function device() {
+    let d = ls.get(LS.dev);
+    if (!d || d.length < 24) { const a = new Uint8Array(16); (crypto || window.msCrypto).getRandomValues(a); d = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); ls.set(LS.dev, d); }
+    return d;
+  }
+  // Kostas's devices: open the game once with ?owner=<code>. The code is kept here and the address bar is cleaned.
+  try {
+    const u = new URL(location.href), oc = u.searchParams.get('owner');
+    if (oc) { ls.set(LS.owner, oc); if (!ls.get(LS.name)) ls.set(LS.name, CFG.owner); u.searchParams.delete('owner'); history.replaceState(null, '', u.pathname + (u.search || '') + u.hash); }
+  } catch {}
+
+  // ---------------------------------------------------------------- server calls
+  async function rpc(fn, body, ms = 9000) {
+    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), ms);
+    try {
+      const h = { 'content-type': 'application/json', apikey: CFG.key };
+      if (/^eyJ/.test(CFG.key)) h.authorization = 'Bearer ' + CFG.key;
+      const r = await fetch(CFG.url.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, { method: 'POST', headers: h, body: JSON.stringify(body), signal: ac.signal, cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(tm); }
+  }
+  const api = {
+    start: () => rpc('lb_start', { p_device: device(), p_route: CFG.route }),
+    submit: (p, name) => rpc('lb_submit', { p_token: p.token, p_device: device(), p_name: name, p_time_ms: p.ms, p_splits_ms: p.splits, p_stats: p.stats, p_owner: ls.get(LS.owner) || null }, 25000),
+    board: (limit = 50) => rpc('lb_board', { p_route: CFG.route, p_device: device(), p_limit: limit }),
+  };
+
+  // ---------------------------------------------------------------- run state
+  const S = { tokenP: null, run: null, post: null, board: null, boardAt: 0, boardP: null, worldTab: true };
+  // S.post: { state: 'ask'|'sending'|'done'|'fail'|'skip', res, err }
+  const isFwd = () => { try { return (window.__game && window.__game.DIR) !== 'rev'; } catch { return true; } };
+
+  function loadBoard(force) {
+    if (!ON) return Promise.resolve(null);
+    if (!force && S.board && Date.now() - S.boardAt < 20000) return Promise.resolve(S.board);
+    if (S.boardP) return S.boardP;
+    S.boardP = api.board(50).then(b => { S.board = b; S.boardAt = Date.now(); if (b && b.myname && !ls.get(LS.name)) ls.set(LS.name, b.myname); return b; })
+      .catch(() => null).finally(() => { S.boardP = null; });
+    return S.boardP;
+  }
+
+  function onGo() {
+    S.run = null; S.post = null; S.tokenP = null;
+    if (!ON || !isFwd()) return;
+    S.tokenP = api.start().then(r => (r && r.ok ? r.token : null)).catch(() => null);
+  }
+
+  function pathOf(rec) {
+    try { const X = rec.c[1], Z = rec.c[3]; let p = 0; for (let i = 1; i < rec.n; i++) { const dx = X[i] - X[i - 1], dz = Z[i] - Z[i - 1], s = Math.hypot(dx, dz); if (s < 200) p += s; } return Math.round(p); } catch { return null; }
+  }
+
+  function onFinish(res, X) {
+    if (!ON || !isFwd() || !res || res.valid === false || !S.tokenP) { S.post = null; return; }
+    const rec = X.lastRec; if (!rec) return;
+    const st = rec.stats();
+    const ms = Math.round(res.time * 1000);
+    const splits = (res.splits || []).map(v => (v == null ? null : Math.round(v * 1000))); splits.push(ms);
+    let car = ''; try { car = window.__carsel && window.__carsel.car ? window.__carsel.car.name : ''; } catch {}
+    S.run = { ms, splits, stats: { top: Math.round(st.top * 10) / 10, avg: Math.round(st.avg * 10) / 10, path: pathOf(rec), samples: rec.n, car } };
+    const name = ls.get(LS.name);
+    if (name) send(name); else { S.post = { state: 'ask' }; paintResults(); }
+  }
+
+  async function send(name) {
+    const tried = !!(S.post && S.post.retry); S.post = { state: 'sending', tried }; paintResults();
+    const token = await S.tokenP;
+    if (!token) { S.post = { state: 'fail', err: 'The world board could not be reached when this run started, so this time stays on this device only.' }; paintResults(); return; }
+    let r = null;
+    for (let attempt = 1; attempt <= 2 && !r; attempt++) {
+      try { r = await api.submit(Object.assign({ token }, S.run), name); } catch (e) { console.warn('world board post', attempt, e && e.message); r = null; }
+      // a post that timed out on our side may still have landed: then the server says "already posted"
+      if (r && !r.ok && r.reason === 'run already posted' && (attempt > 1 || S.post.tried)) {
+        const b = await loadBoard(true);
+        if (b && b.me) r = { ok: true, rank: b.me.rank, total: b.total, best_ms: b.me.ms, is_pb: b.me.ms === S.run.ms };
+      }
+    }
+    if (!r) { S.post = { state: 'fail', err: 'No connection to the world board. Your time is still saved on this device.', retry: true, name }; paintResults(); return; }
+    if (!r.ok) {
+      if (r.retry || r.reason === 'name taken') { ls.del(LS.name); S.post = { state: 'ask', err: `"${name}" is already taken by someone else. Pick another name.` }; }
+      else if (r.reason === 'name not allowed') { ls.del(LS.name); S.post = { state: 'ask', err: 'That name is not allowed. Use 2 to 16 letters or numbers.' }; }
+      else S.post = { state: 'fail', err: 'The world board did not accept this run (' + r.reason + ').' };
+      paintResults(); return;
+    }
+    ls.set(LS.name, name);
+    S.post = { state: 'done', res: r };
+    S.board = null; await loadBoard(true); paintResults(); paintBoard();
+  }
+
+  // ---------------------------------------------------------------- CSS
+  const CSS = `
+.nts-w{margin:14px 0 4px;padding:12px 14px;border-radius:10px;background:rgba(255,178,30,.08);border:1px solid rgba(255,178,30,.35)}
+.nts-w h2{margin:0 0 6px!important;color:var(--sun,#ffb21e)!important}
+.nts-w p{margin:4px 0!important}
+.nts-big{font:italic 800 26px/1.1 var(--display,"Barlow Condensed",sans-serif);color:var(--text,#fff);margin:2px 0 4px}
+.nts-big .g{color:#6fd08c}.nts-big .r{color:#ef6b5b}
+.nts-form{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.nts-form input{flex:1 1 160px;min-width:0;font:600 16px/1.2 var(--body,"Barlow",system-ui,sans-serif);padding:10px 12px;border-radius:8px;border:1px solid var(--line,rgba(255,255,255,.3));background:rgba(255,255,255,.08);color:var(--text,#fff)}
+.nts-form .px-btn{padding:10px 16px}
+.nts-err{color:#ef6b5b!important}
+table.px-t tr.nts-me td{color:var(--sun,#ffb21e);font-weight:700}
+table.px-t tr.nts-own td{color:#9fd3ff}
+.nts-tag{display:inline-block;font:700 10px/1 var(--display,sans-serif);letter-spacing:.1em;text-transform:uppercase;padding:3px 5px;border-radius:4px;margin-left:6px;vertical-align:2px;background:#9fd3ff;color:#0b1216}
+.nts-tag.me{background:var(--sun,#ffb21e)}
+.nts-sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 10px}
+.nts-sum div{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.05)}
+.nts-sum b{display:block;font:italic 800 24px/1.05 var(--display,"Barlow Condensed",sans-serif);color:var(--text,#fff)}
+.nts-sum span{font-size:12px;color:var(--muted,#a9bbba)}
+.nts-scroll{max-height:min(46vh,420px);overflow:auto}
+@media (max-width:560px){.nts-sum{grid-template-columns:1fr}.nts-big{font-size:22px}table.px-t.nts-t td:nth-child(4),table.px-t.nts-t th:nth-child(4){display:none}}
+`;
+  function addCss() { if (document.getElementById('ntsCss')) return; const s = document.createElement('style'); s.id = 'ntsCss'; s.textContent = CSS; document.head.appendChild(s); }
+
+  // ---------------------------------------------------------------- pieces
+  function vsOwnerLine(b, myMs) {
+    const ow = b && b.owner; if (!ow || myMs == null) return '';
+    if (b.me && b.me.name === ow.name && b.owner.ms === myMs && ls.get(LS.owner)) return '';
+    const d = myMs - ow.ms;
+    return d < 0 ? `<div class="nts-big"><span class="g">You beat ${esc(ow.name)} by ${(Math.abs(d) / 1000).toFixed(2)} s!</span></div>`
+      : d === 0 ? `<div class="nts-big">Dead heat with ${esc(ow.name)}!</div>`
+      : `<div class="nts-big"><span class="r">${(d / 1000).toFixed(2)} s</span> behind ${esc(ow.name)} <small style="font-size:15px;opacity:.75">(${fmt(ow.ms)})</small></div>`;
+  }
+  function rowsHtml(list, opts = {}) {
+    return list.map(r => `<tr class="${r.me ? 'nts-me' : r.owner ? 'nts-own' : ''}"><td>${r.rank}</td><td style="text-align:left;padding-left:10px">${esc(r.name)}${r.owner ? '<span class="nts-tag">Creator</span>' : ''}${r.me ? '<span class="nts-tag me">You</span>' : ''}</td><td>${fmt(r.ms)}</td>${opts.car ? `<td>${esc(r.car || '')}</td>` : ''}<td>${r.rank > 1 && list[0] ? '+' + ((r.ms - list[0].ms) / 1000).toFixed(2) : ''}</td></tr>`).join('');
+  }
+  // top rows plus me and the creator if they are further down
+  function shortList(b, n) {
+    const top = (b.top || []).slice(0, n);
+    for (const k of ['owner', 'me']) { const x = b[k]; if (x && !top.some(r => r.rank === x.rank && r.name === x.name)) { const full = (b.top || []).find(r => r.name === x.name); top.push(full || { rank: x.rank, name: x.name, ms: x.ms, me: k === 'me', owner: k === 'owner' }); } }
+    return top.sort((a, c) => a.ms - c.ms);
+  }
+
+  // ---------------------------------------------------------------- results card
+  function resultsHtml() {
+    const P = S.post; if (!P) return '';
+    if (P.state === 'ask') return `<h2>World board</h2><p>Post this time so friends can try to beat it. Pick a name (2 to 16 letters); it stays yours on this device.</p>
+      ${P.err ? `<p class="nts-err">${esc(P.err)}</p>` : ''}
+      <div class="nts-form"><input class="nts-name" maxlength="16" autocomplete="nickname" enterkeyhint="send" placeholder="Your name" aria-label="Your name for the world board">
+      <button class="px-btn" data-nts="post">Post my time</button><button class="px-btn alt" data-nts="skip">Not now</button></div>`;
+    if (P.state === 'sending') return `<h2>World board</h2><p>Posting your time…</p>`;
+    if (P.state === 'skip') return `<h2>World board</h2><p>Not posted. <a href="#" data-nts="unskip" style="color:var(--sun,#ffb21e)">Post it after all</a></p>`;
+    if (P.state === 'fail') return `<h2>World board</h2><p class="nts-err">${esc(P.err)}</p>${P.retry ? '<div class="nts-form"><button class="px-btn alt" data-nts="retry">Try again</button></div>' : ''}`;
+    const r = P.res, b = S.board, mine = S.run.ms;
+    const head = r.is_pb ? `${ord(r.rank)} of ${r.total} in the world` : `Your world best is ${fmt(r.best_ms)} (${ord(r.rank)} of ${r.total})`;
+    const list = b ? shortList(b, 5) : [];
+    return `<h2>World board</h2><div class="nts-big">${head}</div>${b ? vsOwnerLine(b, mine) : ''}
+      ${list.length ? `<table class="px-t nts-t"><tbody>${rowsHtml(list)}</tbody></table>` : ''}
+      <p style="font-size:12px">Posted as <b style="color:var(--text,#fff)">${esc(ls.get(LS.name) || '')}</b> · <a href="#" data-nts="rename" style="color:var(--sun,#ffb21e)">change name</a> · <a href="#" data-nts="world" style="color:var(--sun,#ffb21e)">full world board</a></p>`;
+  }
+  function paintResults() {
+    const card = document.getElementById('pxResults'); if (!card) return;
+    let box = card.querySelector('.nts-w');
+    const html = resultsHtml();
+    if (!html) { if (box) box.remove(); return; }
+    if (!box) {
+      box = document.createElement('div'); box.className = 'nts-w';
+      const anchor = card.querySelector('.px-stats'); if (anchor) anchor.after(box); else card.querySelector('h1')?.after(box);
+      box.addEventListener('click', onResultsClick);
+    }
+    const typed = box.querySelector('.nts-name')?.value;
+    box.innerHTML = html;
+    const inp = box.querySelector('.nts-name');
+    if (inp) { inp.value = typed || ''; if (!matchMedia('(pointer:coarse)').matches) setTimeout(() => inp.focus(), 40); }
+  }
+  function onResultsClick(e) {
+    const a = e.target.closest('[data-nts]')?.dataset.nts; if (!a) return; e.preventDefault(); e.stopPropagation();
+    if (a === 'post') { const v = (document.querySelector('#pxResults .nts-name')?.value || '').trim().replace(/\s+/g, ' '); if (!/^[\p{L}\p{N} ._'-]{2,16}$/u.test(v)) { S.post = { state: 'ask', err: 'Use 2 to 16 letters or numbers.' }; paintResults(); return; } send(v); }
+    else if (a === 'skip') { S.post = { state: 'skip' }; paintResults(); }
+    else if (a === 'unskip' || a === 'rename') { S.post = { state: 'ask' }; paintResults(); }
+    else if (a === 'retry') send(S.post.name);
+    else if (a === 'world') { S.worldTab = true; try { window.__game.X.openBoard('results'); } catch {} }
+  }
+  // typing in the name box must never drive the car or trigger card shortcuts
+  addEventListener('keydown', e => {
+    if (!e.target || !e.target.classList || !e.target.classList.contains('nts-name')) return;
+    e.stopImmediatePropagation();
+    if (e.key === 'Enter') { e.preventDefault(); document.querySelector('#pxResults [data-nts="post"]')?.click(); }
+  }, true);
+  addEventListener('keyup', e => { if (e.target && e.target.classList && e.target.classList.contains('nts-name')) e.stopImmediatePropagation(); }, true);
+
+  // ---------------------------------------------------------------- Best times card: "World" tab
+  function boardHtml(b) {
+    if (!ON) return '<p>The world board is not switched on in this build.</p>';
+    if (!b) return S.boardP ? '<p>Loading the world board…</p>' : '<p class="nts-err">The world board cannot be reached right now. Your own times are under the other tab.</p>';
+    if (!b.total) return `<p>No times posted yet. Finish a run through every checkpoint and post it to be first on the board.</p>`;
+    const ow = b.owner, me = b.me;
+    const sum = `<div class="nts-sum">
+      <div><span>Time to beat${ow ? ` (${esc(ow.name)}, the creator)` : ''}</span><b>${ow ? fmt(ow.ms) : fmt(b.top[0].ms)}</b><span>${ow ? ord(ow.rank) + ' of ' + b.total : esc(b.top[0].name)}</span></div>
+      <div><span>${me ? 'You (' + esc(me.name) + ')' : 'You'}</span><b>${me ? fmt(me.ms) : '–'}</b><span>${me ? ord(me.rank) + ' of ' + b.total + (ow && ow.name !== me.name ? ' · ' + (me.ms < ow.ms ? 'ahead of ' : 'behind ') + esc(ow.name) + ' by ' + (Math.abs(me.ms - ow.ms) / 1000).toFixed(2) + ' s' : '') : 'Post a run to get on the board'}</span></div></div>`;
+    const list = shortList(b, 50);
+    return `${sum}<div class="nts-scroll"><table class="px-t nts-t"><thead><tr><th>#</th><th style="text-align:left;padding-left:10px">Driver</th><th>Time</th><th>Car</th><th>Gap</th></tr></thead><tbody>${rowsHtml(list, { car: true })}</tbody></table></div>
+      <p style="font-size:12px;margin-top:8px">${b.total} driver${b.total === 1 ? '' : 's'} · best time per driver · Rivervale to Peppermint Grove</p>`;
+  }
+  function paintBoard() {
+    const card = document.getElementById('pxBoard'); if (!card || !ON) return;
+    let tabs = card.querySelector('.px-tabs');
+    if (!tabs) { tabs = document.createElement('div'); tabs.className = 'px-tabs'; card.querySelector('h1')?.after(tabs); }
+    let wt = tabs.querySelector('[data-nts-world]');
+    if (!wt) {
+      wt = document.createElement('button'); wt.setAttribute('data-nts-world', '1'); wt.textContent = 'World'; tabs.prepend(wt);
+      // a local tab hides "World" until the card re-renders; the ghost module rebuilds the card on its own tab clicks
+      tabs.addEventListener('click', e => { if (e.target.closest('[data-dir]')) S.worldTab = false; }, true);
+      wt.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); S.worldTab = true; paintBoard(); });
+      if (tabs.querySelectorAll('[data-dir]').length === 1) tabs.querySelector('[data-dir]').textContent = 'My times';
+    }
+    const local = Array.from(card.children).filter(n => n !== tabs && !n.classList.contains('px-actions') && !n.classList.contains('px-kick') && n.tagName !== 'H1' && !n.classList.contains('nts-wb'));
+    let wb = card.querySelector('.nts-wb');
+    tabs.querySelectorAll('button').forEach(bt => bt.classList.toggle('on', S.worldTab ? bt === wt : (bt !== wt && bt.classList.contains('on'))));
+    if (!S.worldTab) { if (wb) wb.hidden = true; local.forEach(n => (n.hidden = false)); card.querySelectorAll('.px-actions .small').forEach(n => (n.hidden = false)); return; }
+    if (!wb) { wb = document.createElement('div'); wb.className = 'nts-wb'; tabs.after(wb); }
+    local.forEach(n => (n.hidden = true)); wb.hidden = false;
+    card.querySelectorAll('.px-actions .small').forEach(n => (n.hidden = true));   // backup buttons belong to "My times"
+    const kick = card.querySelector('.px-kick'); if (kick) kick.textContent = 'Everyone who has played';
+    wb.innerHTML = boardHtml(S.board);
+    if (!S.board || Date.now() - S.boardAt > 20000) loadBoard().then(() => { if (document.getElementById('pxBoard') && S.worldTab) wb.innerHTML = boardHtml(S.board); });
+  }
+
+  // ---------------------------------------------------------------- wiring
+  const mo = new MutationObserver(muts => {
+    for (const m of muts) for (const n of m.addedNodes) {
+      if (n.id === 'pxResults') paintResults();
+      else if (n.id === 'pxBoard') paintBoard();
+    }
+  });
+  function wire() {
+    const G = window.__game, X = G && G.X;
+    if (!X || X.__nts) return !!(X && X.__nts);
+    X.__nts = true;
+    const go0 = X.go, fin0 = X.finish, rs0 = X.runStart, ob0 = X.openBoard;
+    X.openBoard = function (from, dirPick) { if (!dirPick) S.worldTab = true; return ob0.apply(this, arguments); };
+    X.go = function () { const r = go0.apply(this, arguments); try { onGo(); } catch (e) { console.warn('online go', e); } return r; };
+    X.runStart = function () { S.post = null; S.run = null; return rs0.apply(this, arguments); };
+    X.finish = function (res) { const r = fin0.apply(this, arguments); try { onFinish(res, X); paintResults(); } catch (e) { console.warn('online finish', e); } return r; };
+    addCss(); mo.observe(document.body, { childList: true });
+    if (ON) setTimeout(() => loadBoard(), 4000);   // warm the board (and wake the server) after load
+    return true;
+  }
+  (function poll(n) { if (!wire() && n < 600) setTimeout(() => poll(n + 1), 250); })(0);
+
+  window.PerthOnline = { version: '1.0.0', on: ON, api, state: S, loadBoard, device, paintBoard, paintResults };
 })();
 
 await __LDstep(47);
