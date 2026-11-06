@@ -1,0 +1,14 @@
+# Keeps the free Supabase project behind the world leaderboard awake.
+# Free projects pause after 7 days with no requests; this reads the board twice a week.
+name: Keep world board awake
+on:
+  schedule: [{ cron: '17 3 * * 1,4' }]
+  workflow_dispatch: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST "https://ctbsylrsombhinergria.supabase.co/rest/v1/rpc/lb_board" \
+            -H "apikey: sb_publishable_UMHIYq-3RURfdsQht5Ha0A_n8CBZfMF" -H "content-type: application/json" \
+            -d '{"p_route":"fwd-v1","p_limit":1}' | head -c 300
