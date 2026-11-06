@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=8952282</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=8952572</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -11010,7 +11010,9 @@ LMX.rvkooyong = function (H) {
   let pl, br, rf, at, lf;
   // ground offsets (m) of each lot above its part's lowest ring ground, from a raycast of Google's mesh (see rvkooyong.md)
   // round 2 in game showed the lots ~40% too high against the footpath with the full road rise: scale it
-  const GYK = 0.6;
+  // 6 Nov (Kostas: "the building on kooyong road are lifted above the road"): the long-part follow in lmx-post now lifts every vertex to the
+  // road height beside it, and GY (raycast lot heights) already holds that same road rise, so the lots came out up to 3.6 m high. Rise counted once.
+  const GYK = 0;
   const GY = {'32': 0.28, '30': 0.79, '28': 1.14, '24': 1.5, '22': 2.03, '20': 2.67, '18': 3.39, '16': 3.96, '14': 4.66, '12': 5.23, '10B': 5.57, '10A': 5.86, '8': 5.96, '6': 5.89, '4': 5.42, '2': 4.53, '33N': 0.55, '25': 1.14, '23': 1.32, '21': 1.73, '19': 2.05, '17': 2.69, '15': 3.42, '13': 3.99, '11': 4.68, '9': 5.32, '7': 5.83, '5': 5.96};
   const setLot = (side, n) => { const P = PARTS[side]; pl = P.plain; br = P.brick; rf = P.roof; at = P.atlas; lf = P.leaf; XF = { sg: side === 'SW' ? 1 : -1, pl: PL[side], dy: (GY[n] || 0) * GYK }; };
 
