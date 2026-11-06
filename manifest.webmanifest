@@ -29,5 +29,11 @@
    "purpose": "maskable"
   }
  ],
- "prefer_related_applications": false
+ "prefer_related_applications": false,
+ "related_applications": [
+  {
+   "platform": "webapp",
+   "url": "https://kkarageorge.github.io/Not-the-Salad/manifest.webmanifest"
+  }
+ ]
 }

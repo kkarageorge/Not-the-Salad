@@ -1661,13 +1661,29 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
   // ---------- 4. install as an app ----------
   let deferred = null;
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; installUI(); });
+  // If Chrome never offers to install, it usually thinks the app is already on this phone (a stale or broken
+  // copy). Chrome then shows "Open app" in its menu, and opening a copy that is not really there gives the
+  // "Could not open app" toast. Ask Chrome directly and tell the player what to do.
+  setTimeout(() => { try {
+    if (deferred || !PHONE || !navigator.getInstalledRelatedApps) return;
+    if (matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) return;
+    navigator.getInstalledRelatedApps().then(apps => {
+      if (!apps || !apps.length) return;
+      const go = document.getElementById('go'); if (!go || document.getElementById('installbar')) return;
+      const bar = document.createElement('div'); bar.id = 'installbar';
+      bar.innerHTML = 'Chrome says <b>Not the Salad!</b> is already installed on this phone, so it will not offer to install it again. ' +
+        'Open it from your home screen or app list. If that copy will not open: in Chrome tap <b>&#8942; &gt; Settings &gt; Site settings &gt; All sites</b>, ' +
+        'find <b>kkarageorge.github.io</b>, tap <b>Delete &amp; reset</b>, then come back here and install again.';
+      go.parentElement.insertBefore(bar, go.nextSibling);
+    }).catch(() => { });
+  } catch (e) { } }, 6000);
   function installUI() {
     const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone;
     if (standalone || !PHONE) return;
     const go = document.getElementById('go'); if (!go || document.getElementById('installbar')) return;
     const bar = document.createElement('div'); bar.id = 'installbar';
     const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    if (deferred) { bar.innerHTML = '<button type="button" class="ghost" id="installbtn">Install app</button>Puts Perth Run on your home screen.'; }
+    if (deferred) { bar.innerHTML = '<button type="button" class="ghost" id="installbtn">Install app</button>Puts Not the Salad! on your home screen.'; }
     else if (ios) bar.innerHTML = 'Make it an app: tap <b>Share</b> <span style="font-size:17px">⎋</span> then <b>Add to Home Screen</b>.';
     else return;
     go.parentElement.insertBefore(bar, go.nextSibling);
