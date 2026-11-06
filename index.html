@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=8952572</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=8952636</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -37143,7 +37143,7 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
 
 /* Background music (6 Nov 2026, Kostas: "can we introduce the music from the sizzle reel into game as background music?").
    "Greko" by Kevin MacLeod (incompetech.com), CC BY 4.0 (credited in the Credits text). The file sits next to the page as
-   music/greko.mp3 and is only fetched once you press Drive, so the menu and phones don't download it until it is needed.
+   music/greko.mp3 and is only fetched once you press Drive, fetched on the first tap or key press (the menu plays it too; browsers allow sound only after one).
    - loops the whole track with a 1.5 s crossfade (it has a real intro and ending)
    - ducked under the engine: quieter the faster you go, and lower again while paused / on the results card
    - Music on/off in the pause menu and Settings > Sound, remembered on this device (localStorage perthMusic)
@@ -37195,7 +37195,7 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
     const go = document.getElementById('go'); if (go) go.addEventListener('click', start, true);
     // the v5 menu's Drive buttons don't always click #go directly: any press while the game is starting will do
     // iPhone/Chrome only let sound start from a tap or key press: wake the audio context on every press, start the track once a run is on
-    const unlock = () => { if (!on) return; const c = ctx(); if (c && c.state === 'suspended') c.resume(); const g = window.__game; if (g && g.state && g.state !== 'setup') start(); };
+    const unlock = () => { if (!on) return; const c = ctx(); if (c && c.state === 'suspended') c.resume(); start(); };   // 6 Nov (Kostas): the music plays on the main menu too, from the first tap or key press
     addEventListener('pointerdown', unlock, true); addEventListener('touchend', unlock, true);
     addEventListener('keydown', unlock, true);   // M is the game's own Sound on/off, which music follows
     const act = document.querySelector('#pause .actions');
