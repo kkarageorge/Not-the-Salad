@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=8950008</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=8950996</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -26283,7 +26283,7 @@ const BLDS = SCN.b.map(([flat, g, roof, roofMin, type, lv, osmid], id) => {
   if (THREE.ShapeUtils.isClockWise(pl)) pl.reverse();
   let cx = 0, cz = 0; pl.forEach(p => { cx += p.x; cz += p.y; }); cx /= pl.length; cz /= pl.length;
   const j = nearestOnRoad(cx, cz), area = Math.abs(THREE.ShapeUtils.area(pl));
-  const base = g ?? road[j].h;
+  let base = g ?? road[j].h;
   const commercial = /commercial|retail|office|university|hospital|public|school|hotel|apartments|dormitory|industrial|church|civic/.test(type) || area > 700;
   let h = roof != null && roof - base > 2.4 && roof - base < 90 ? roof - base : (lv ? lv * 3.2 + 0.6 : (commercial ? 8 : 5.6));
   if (lv && Math.abs(h - lv * 3.2) > 6) h = lv * 3.2 + 0.6; // trust tagged levels when the bake disagrees
@@ -26296,11 +26296,15 @@ const BLDS = SCN.b.map(([flat, g, roof, roofMin, type, lv, osmid], id) => {
   // likewise a small OpenStreetMap outline (shed, carport) whose centre sits on the kerb or footpath (Surrey Rd had one centred 1 m from the road axis)
   { const R = road[j], latC = Math.abs((cx - R.p.x) * R.r.x + (cz - R.p.y) * R.r.y); if (!st && area < 120 && latC < R.w / 2 + GUTTER + KERB_W + PATH_W) drop = true; }
   // our own ground under the footprint's corners: where the land falls away from the road (Surrey Rd, the hillside lots) the walls go down to it, not just 0.6 m below the baked base
-  let gmin = base; for (const p of pl) { const q = nearestOnRoad(p.x, p.y, j), R = road[q], lat = (p.x - R.p.x) * R.r.x + (p.y - R.p.y) * R.r.y, edge = Math.abs(lat) - R.w / 2; if (edge > 0 && edge < 46) gmin = Math.min(gmin, groundAt(q, lat > 0 ? 1 : 0, edge)); }   // 46 = CLEAR_W, declared further down
+  let gmin = base, gmax = -Infinity; for (const p of pl) { const q = nearestOnRoad(p.x, p.y, j), R = road[q], lat = (p.x - R.p.x) * R.r.x + (p.y - R.p.y) * R.r.y, edge = Math.abs(lat) - R.w / 2; if (edge > 0 && edge < 46) { const y = groundAt(q, lat > 0 ? 1 : 0, edge); gmin = Math.min(gmin, y); gmax = Math.max(gmax, y); } }   // 46 = CLEAR_W, declared further down
+  // 6 Nov (Kostas: "the buildings on Kooyong Road are lifted above the road"): on flat land a baked base well above our ground at every corner
+  // is a ray that stopped on a tree canopy, not the ground. Sit the house on the ground; keep its measured height. Hillside lots (ground well off road level) are left alone.
+  if (gmax === -Infinity) { const R = road[j], lat = (cx - R.p.x) * R.r.x + (cz - R.p.y) * R.r.y; if (Math.abs(lat) - R.w / 2 > 0) gmax = groundAt(j, lat > 0 ? 1 : 0, 45); }   // set back beyond the corridor: the corridor's outer edge is the nearest ground we know
+  let grounded = 0; if (gmax > -Infinity && house && !(st && st.storeys && st.keepBase) && Math.abs(gmax - road[j].h) < 1.6 && base - gmax > 1.0) { grounded = +(base - gmax - 0.15).toFixed(1); base = gmax + 0.15; gmin = Math.min(gmin, base); }
   gmin = Math.max(gmin, base - 6);
-  return { id, osmid, pl, cx, cz, j, area, base, gmin, h, commercial: st ? !house : commercial, house, type, st, drop };
+  return { id, osmid, pl, cx, cz, j, area, base, gmin, grounded, h, commercial: st ? !house : commercial, house, type, st, drop };
 }).filter(B => !B.drop);
-BLDS.forEach((B, i) => { B.id = i; });
+BLDS.forEach((B, i) => { B.id = i; }); window.__BLDS = BLDS; window.__ROADJ = road;   // debug: tools look buildings up by osm id
 // rasterise footprints (cell centres inside the polygon, grown by one cell)
 function inPoly(pl, x, z) { let c = false; for (let i = 0, k = pl.length - 1; i < pl.length; k = i++) { const a = pl[i], b = pl[k]; if ((a.y > z) !== (b.y > z) && x < (b.x - a.x) * (z - a.y) / (b.y - a.y) + a.x) c = !c; } return c; }
 for (const B of BLDS) {
