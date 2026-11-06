@@ -8489,6 +8489,110 @@ LMX.surreyback = function (H) {
   return { parts: [{ name: 'surreyback', ll: ring, sink: true, obj }, { name: 'surreyback-anchor', ll: fa, sink: false, obj: anchor }], replaces: [], update, stats: { tris: (A.i.length + L.i.length + K.i.length + G.i.length + F.i.length) / 3 } };
 };
 
+// Streets that carry on past the race (6 Nov, Kostas's run: "This street has to continue rather than just cutting off" at the
+// Stirling Hwy / Richardson Ave turn, and "The road on Columba Place should continue rather than just cutting off into shards"
+// past the finish). The game only draws side streets inside its own 46 m corridor, so beyond it Google's melted street and torn
+// trees showed. Each street here is carried on along its OpenStreetMap centreline (ODbL): asphalt with edge and centre lines,
+// kerbs, a grass verge, a footpath and a strip of lawn, with Google's copy under it sunk. Heights: the route's road height where
+// the street leaves it, then Google's own ground measured by small anchor footprints along the street (like surreyback.js).
+// Visual only. Materials are borrowed from the game road once it is built.
+window.LMX = window.LMX || {};
+LMX.streetext = function (H) {
+  const { THREE } = H;
+  const STREETS = [
+    // Stirling Hwy south-west of the Richardson Ave turn (OSM way, trunk, 2 lanes each way)
+    { name: 'stirling-sw', w: 13.2, cl: 'double', ll: [[-31.986701, 115.771669], [-31.986781, 115.771481], [-31.9869, 115.77122], [-31.986981, 115.771054], [-31.987061, 115.770906], [-31.987273, 115.770544], [-31.987485, 115.770175], [-31.987552, 115.770057], [-31.987773, 115.769694], [-31.987828, 115.769595], [-31.987896, 115.769488], [-31.987931, 115.769438], [-31.987974, 115.769379], [-31.988048, 115.769296], [-31.988235, 115.769145], [-31.98834, 115.769061], [-31.988532, 115.768913], [-31.98867, 115.768798], [-31.988901, 115.76862], [-31.989079, 115.768485]], startOff: 50 },
+    // Columba Place west of the finish (OSM residential, 2 lanes)
+    { name: 'columba-w', w: 6.4, cl: 'none', ll: [[-32.002451, 115.763657], [-32.002449, 115.763136], [-32.002484, 115.762911], [-32.002484, 115.762102]], startOff: 2 },
+  ];
+  const KH = 0.15, KW = 0.3, VERGE = 2.6, PATHW = 1.5, LAWN = 4.0;
+  const B = () => ({ p: [], uv: [], i: [] });
+  const A = B(), L = B(), K = B(), G = B(), F = B();
+  const quad = (b, a, c, d, e, ua, uc, ud, ue) => { const n = b.p.length / 3; b.p.push(...a, ...c, ...d, ...e); b.uv.push(...ua, ...uc, ...ud, ...ue); b.i.push(n, n + 1, n + 2, n + 1, n + 3, n + 2); };
+  const toLL = (x, z) => { const O = H.toLocal(-31.96, 115.91), E = H.toLocal(-31.96, 115.911), N = H.toLocal(-31.959, 115.91);
+    const ex = E.x - O.x, ez = E.z - O.z, nx = N.x - O.x, nz = N.z - O.z, det = ex * nz - ez * nx, dx = x - O.x, dz = z - O.z;
+    const a = (dx * nz - dz * nx) / det, b = (ex * dz - ez * dx) / det; return [-31.96 + b * 0.001, 115.91 + a * 0.001]; };
+  const nearRoad = (x, z) => { let b = -1, bd = 1e18; for (let i = 0; i < road.length; i++) { const d = (road[i].p.x - x) ** 2 + (road[i].p.y - z) ** 2; if (d < bd) { bd = d; b = i; } } return [b, Math.sqrt(bd)]; };
+  const parts = [], meshes = [], streets = [];
+  for (const S of STREETS) {
+    // resample the centreline every 4 m
+    const raw = S.ll.map(([la, lo]) => { const v = H.toLocal(la, lo); return [v.x, v.z]; });
+    const pts = [raw[0]]; for (let i = 1; i < raw.length; i++) { const [ax, az] = raw[i - 1], [bx, bz] = raw[i], l = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(l / 4)); for (let q = 1; q <= n; q++) pts.push([ax + (bx - ax) * q / n, az + (bz - az) * q / n]); }
+    // start where the game's own side-street ribbon stops (S.startOff metres from our road's centre)
+    let k0 = 0; while (k0 < pts.length - 2 && nearRoad(pts[k0][0], pts[k0][1])[1] < S.startOff) k0++;
+    const P = pts.slice(Math.max(0, k0 - 1)); if (P.length < 3) continue;
+    let s = 0; const st = P.map((p, i) => { if (i) s += Math.hypot(p[0] - P[i - 1][0], p[1] - P[i - 1][1]); const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, tx = (b[0] - a[0]) / l, tz = (b[1] - a[1]) / l; return { x: p[0], z: p[1], s, rx: -tz, rz: tx }; });
+    const LEN = s, hw = S.w / 2, SINKW = hw + KW + VERGE + PATHW + LAWN;
+    const V0 = A.p.length / 3, vStart = { A: A.p.length / 3, L: L.p.length / 3, K: K.p.length / 3, G: G.p.length / 3, F: F.p.length / 3 };
+    const Pt = (q, o, y) => [q.x + q.rx * o, y, q.z + q.rz * o];
+    for (let i = 0; i < st.length - 1; i++) {
+      const q0 = st[i], q1 = st[i + 1], v0 = q0.s / 6, v1 = q1.s / 6;
+      quad(A, Pt(q0, -hw, 0), Pt(q0, hw, 0), Pt(q1, -hw, 0), Pt(q1, hw, 0), [-hw / 6, v0], [hw / 6, v0], [-hw / 6, v1], [hw / 6, v1]);
+      for (const sg of [-1, 1]) {
+        const k0o = sg * hw, k1 = sg * (hw + KW), g1 = sg * (hw + KW + VERGE), f1 = sg * (hw + KW + VERGE + PATHW), g2 = sg * SINKW;
+        quad(K, Pt(q0, k0o, 0), Pt(q0, k0o, KH), Pt(q1, k0o, 0), Pt(q1, k0o, KH), [q0.s / 2, 0], [q0.s / 2, 0.15], [q1.s / 2, 0], [q1.s / 2, 0.15]);
+        quad(K, Pt(q0, k0o, KH), Pt(q0, k1, KH), Pt(q1, k0o, KH), Pt(q1, k1, KH), [q0.s / 2, 0], [q0.s / 2, 0.3], [q1.s / 2, 0], [q1.s / 2, 0.3]);
+        quad(G, Pt(q0, k1, KH - 0.02), Pt(q0, g1, KH - 0.02), Pt(q1, k1, KH - 0.02), Pt(q1, g1, KH - 0.02), [q0.s / 4, 0], [q0.s / 4, VERGE / 4], [q1.s / 4, 0], [q1.s / 4, VERGE / 4]);
+        quad(F, Pt(q0, g1, KH - 0.01), Pt(q0, f1, KH - 0.01), Pt(q1, g1, KH - 0.01), Pt(q1, f1, KH - 0.01), [q0.s / 3, 0], [q0.s / 3, 0.5], [q1.s / 3, 0], [q1.s / 3, 0.5]);
+        quad(G, Pt(q0, f1, KH - 0.03), Pt(q0, g2, KH - 0.03), Pt(q1, f1, KH - 0.03), Pt(q1, g2, KH - 0.03), [q0.s / 4, 0], [q0.s / 4, LAWN / 4], [q1.s / 4, 0], [q1.s / 4, LAWN / 4]);
+        const e0 = sg * (hw - 0.35); quad(L, Pt(q0, e0 - 0.05, 0.012), Pt(q0, e0 + 0.05, 0.012), Pt(q1, e0 - 0.05, 0.012), Pt(q1, e0 + 0.05, 0.012), [0, 1], [1, 1], [0, 0], [1, 0]);
+        if (S.cl === 'double') { const c0 = sg * 0.12; quad(L, Pt(q0, c0 - 0.05, 0.012), Pt(q0, c0 + 0.05, 0.012), Pt(q1, c0 - 0.05, 0.012), Pt(q1, c0 + 0.05, 0.012), [0, 1], [1, 1], [0, 0], [1, 0]);
+          if ((q0.s % 12) < 4) { const ln = sg * hw / 2; quad(L, Pt(q0, ln - 0.06, 0.012), Pt(q0, ln + 0.06, 0.012), Pt(q1, ln - 0.06, 0.012), Pt(q1, ln + 0.06, 0.012), [0, 1], [1, 1], [0, 0], [1, 0]); } }
+      }
+    }
+    // Google sinks under the whole corridor; small unsunk anchors measure its ground at 1/3, 2/3 and the far end
+    const ring = []; for (const q of st) ring.push(toLL(...[q.x + q.rx * -SINKW, q.z + q.rz * -SINKW])); for (let i = st.length - 1; i >= 0; i--) { const q = st[i]; ring.push(toLL(q.x + q.rx * SINKW, q.z + q.rz * SINKW)); }
+    parts.push({ name: 'streetext-' + S.name, ll: ring.flat(), sink: true, obj: null });
+    const anchors = [];
+    for (const f of [0.33, 0.66, 1]) { const sa = Math.max(6, LEN * f - 6); let i = 0; while (i < st.length - 2 && st[i + 1].s < sa) i++; const q = st[i], q2 = st[Math.min(st.length - 1, i + 2)];
+      const a = new THREE.Group(); a.name = 'streetext-anchor-' + S.name + '-' + f; anchors.push({ s: q.s, obj: a });
+      parts.push({ name: a.name, ll: [[q, -2.5], [q2, -2.5], [q2, 2.5], [q, 2.5]].map(([p, o]) => toLL(p.x + p.rx * o, p.z + p.rz * o)).flat(), sink: false, obj: a }); }
+    const [j0] = nearRoad(st[0].x, st[0].z);
+    streets.push({ S, st, j0, anchors, vStart, vEnd: null });
+  }
+  // finish the per-street vertex ranges
+  for (let k = 0; k < streets.length; k++) { const nx = streets[k + 1] ? streets[k + 1].vStart : { A: A.p.length / 3, L: L.p.length / 3, K: K.p.length / 3, G: G.p.length / 3, F: F.p.length / 3 }; streets[k].vEnd = nx; }
+  const tmpMat = new THREE.MeshStandardMaterial({ color: 0x55585c, roughness: 0.95 });
+  const obj = new THREE.Group(); obj.name = 'streetext'; obj.userData.noBatch = true;
+  const M = {};
+  for (const [k, b] of Object.entries({ A, L, K, G, F })) {
+    if (!b.i.length) continue;
+    // faces up: flip any triangle whose normal points down
+    for (let t = 0; t < b.i.length; t += 3) { const [i0, i1, i2] = [b.i[t], b.i[t + 1], b.i[t + 2]], p = b.p;
+      const ax = p[i1 * 3] - p[i0 * 3], az = p[i1 * 3 + 2] - p[i0 * 3 + 2], bx = p[i2 * 3] - p[i0 * 3], bz = p[i2 * 3 + 2] - p[i0 * 3 + 2], ay = p[i1 * 3 + 1] - p[i0 * 3 + 1], by = p[i2 * 3 + 1] - p[i0 * 3 + 1];
+      const ny = az * bx - ax * bz; if (ny < 0 && Math.abs(ay) < 0.05 && Math.abs(by) < 0.05) { b.i[t + 1] = i2; b.i[t + 2] = i1; } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(b.p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(b.uv, 2)); g.setIndex(b.i); g.computeVertexNormals(); g.computeBoundingSphere();
+    const m = new THREE.Mesh(g, tmpMat); m.receiveShadow = true; obj.add(m); M[k] = m; m.userData.y = Float32Array.from({ length: b.p.length / 3 }, (_, i) => b.p[i * 3 + 1]);
+  }
+  parts[0].obj = obj; for (const p of parts) if (!p.obj) p.obj = new THREE.Group();
+  let done = false, key0 = '';
+  const update = () => {
+    const g = window.__game; if (!g || !g.road || !g.road.length) return;
+    if (!done) {
+      const MM = {}; scene.traverse(o => { if (!o.isMesh || !o.material || o.material.isShaderMaterial) return; const m = o.material; if (Array.isArray(m)) return;
+        if (!MM.A && m.map && m.roughness === 0.92) MM.A = m; else if (!MM.L && !m.map && m.color && m.color.getHex() === 0xf2f2ec) MM.L = m; else if (!MM.K && m.map && m.roughness === 0.85 && !m.color.equals(new THREE.Color(0xe4ded2))) MM.K = m; else if (!MM.G && m.map && m.roughness === 1 && !m.transparent && !m.alphaTest) MM.G = m; });
+      if (!MM.A) return;
+      for (const k of Object.keys(M)) M[k].material = (k === 'F' ? MM.K : MM[k]) || tmpMat; done = true;
+    }
+    // height profile per street: start at the route's road height, then each measured anchor (clamped to a gentle grade)
+    let key = '';
+    const prof = streets.map(T => { const h0 = road[T.j0].h; let last = { s: 0, h: h0 }; const pts = [last];
+      for (const a of T.anchors) { if (!a.obj.visible || a.obj.position.y === 0) continue; const ds = a.s - last.s, hy = Math.max(last.h - ds * 0.08, Math.min(last.h + ds * 0.08, a.obj.position.y)); last = { s: a.s, h: hy }; pts.push(last); }
+      key += pts.map(p => p.h.toFixed(1)).join(',') + '/'; return pts; });
+    if (key === key0) return; key0 = key;
+    const hAt = (pts, s) => { if (s <= pts[0].s) return pts[0].h; for (let i = 1; i < pts.length; i++) if (s <= pts[i].s) { const a = pts[i - 1], b = pts[i]; return a.h + (b.h - a.h) * (s - a.s) / Math.max(1e-6, b.s - a.s); } return pts[pts.length - 1].h; };
+    for (const [k, m] of Object.entries(M)) { const p = m.geometry.attributes.position, y0 = m.userData.y;
+      streets.forEach((T, n) => { const a = T.vStart[k], b = T.vEnd[k], pr = prof[n], q0 = T.st[0];
+        for (let i = a; i < b; i++) { const dx = p.getX(i) - q0.x, dz = p.getZ(i) - q0.z;
+          // arc length of the vertex: nearest resampled centre point
+          let best = 0, bd = 1e18; for (let j = 0; j < T.st.length; j++) { const d = (T.st[j].x - p.getX(i)) ** 2 + (T.st[j].z - p.getZ(i)) ** 2; if (d < bd) { bd = d; best = j; } }
+          p.setY(i, hAt(pr, T.st[best].s) + y0[i] - 0.03); } });
+      p.needsUpdate = true; m.geometry.computeBoundingSphere(); }
+    obj.visible = true;
+  };
+  return { parts, replaces: [], update, stats: { tris: (A.i.length + L.i.length + K.i.length + G.i.length + F.i.length) / 3 } };
+};
+
 // Claremont civic heritage cluster on Stirling Hwy + the Methodist Ladies' College frontage (route km ~12.55-13.6, south side = LEFT when driving west).
 //  civic:  Claremont Municipal Chambers (OSM way 829737374, node 48728545): white Art Deco front with a stepped parapet, clock tablet,
 //          "CLAREMONT / MUNICIPAL CHAMBERS" lettering, recessed porch, two flagpoles, curved quadrant wing walls, terracotta hip roof,
