@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=8956428</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=8964942</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -33948,7 +33948,7 @@ await __LDstep(55);
       bonnetPivot.visible = true; bonnetPivot.rotation.set(0, 0, 0); engine.visible = false; shellMats[5] = bay; shell.material[5] = bay;
       for (const b of [bumpF, bumpR]) { b.piv.visible = true; b.hang = 0; b.lost = false; b.dmg = 0; b.piv.position.set(0, 0, 0); b.piv.rotation.set(0, 0, 0); b.mesh.position.set(0, 0, 0); }
       for (const m of mirrors) { m.lost = false; m.g.visible = true; }
-      for (const l of lamps.head) { l.broken = false; for (const p of l.parts) p.material = headM; }
+      for (const l of lamps.head) { l.broken = false; for (const p of l.parts) p.material = p.userData.m0 || headM; }
       for (const l of lamps.tail) { l.broken = false; for (const p of l.parts) p.material = tailM; }
       for (const g of [...glows.head, ...glows.tail]) g.visible = true;
       for (const w of wheels) { w.toe = w.cam = w.wob = 0; }
@@ -34104,6 +34104,74 @@ await __LDstep(55);
 
     // ---------------- ready-made skin (swapped in over the coded body; the damage, lamps and wheels keep working) ----------------
     let skinned = null, disposed = false;
+    // ---------------- headlights for the ready-made skins: a clear lens over a real lamp (housing, reflectors, bulbs, LEDs) ----------------
+    // positions are fractions across the lamp seen from the front: u 0 = inner end, 1 = outer end; v 0 = bottom, 1 = top
+    const HEAD = {
+      nova: { d: 0.05, house: 'chrome', lens: [0xf4f6f8, 0.26], items: [['cup', 0.42, 0.5, 0.06], ['bulb', 0.42, 0.5, 0.018], ['div', 0.82], ['flutes', 0.04, 0.8, 12]] },
+      lancer: { d: 0.07, house: 'dark', lens: [0xffffff, 0.14], items: [['proj', 0.2, 0.42, 0.034], ['cup', 0.5, 0.48, 0.05], ['bulb', 0.5, 0.48, 0.016]] },
+      ix3: { d: 0.06, house: 'black', lens: [0xffffff, 0.12], items: [['led', 0.24, 0.47], ['led', 0.47, 0.47], ['drl', 0.24, 0.47], ['drl', 0.47, 0.47], ['blue', 0.1, 0.16, 0.62], ['proj', 0.72, 0.5, 0.02]] },
+    };
+    const headMats = {
+      chrome: new THREE.MeshStandardMaterial({ color: 0xdfe3e8, metalness: 1, roughness: 0.12, side: THREE.DoubleSide }),
+      dark: new THREE.MeshStandardMaterial({ color: 0x3a3f47, metalness: 0.9, roughness: 0.22, side: THREE.DoubleSide }),
+      black: new THREE.MeshStandardMaterial({ color: 0x08090b, metalness: 0.15, roughness: 0.4, side: THREE.DoubleSide }),
+      bezel: new THREE.MeshStandardMaterial({ color: 0x9aa1aa, metalness: 1, roughness: 0.15 }),
+      projGlass: new THREE.MeshStandardMaterial({ color: 0x1c2128, metalness: 0.2, roughness: 0.05 }),
+      flute: new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, roughness: 0.1, depthWrite: false }),
+      blue: new THREE.MeshStandardMaterial({ color: 0x1f63ff, emissive: 0x1f63ff, emissiveIntensity: 0.35, metalness: 0.3, roughness: 0.25 }),
+    };
+    function headLamp(x, l) {
+      const H = HEAD[MD.id], side = l.side, g = new THREE.Group(); g.name = 'headlamp';
+      const lens = new THREE.MeshPhysicalMaterial({ color: H.lens[0], metalness: 0, roughness: 0.03, transparent: true, opacity: H.lens[1], clearcoat: 1, clearcoatRoughness: 0.03, depthWrite: false, side: THREE.DoubleSide });
+      x.material = lens; x.renderOrder = 2; x.castShadow = false; x.userData.m0 = lens;
+      // the lamp's own frame: n points out of the lens, u runs inner -> outer, v up
+      const geo = x.geometry, P = geo.attributes.position.array, I = geo.index.array;
+      const a = new V3(), b = new V3(), c = new V3(), f = new V3(), hint = new V3(side * 0.6, 0.1, -1).normalize(), n = new V3();
+      for (let i = 0; i < I.length; i += 3) { a.fromArray(P, I[i] * 3); b.fromArray(P, I[i + 1] * 3); c.fromArray(P, I[i + 2] * 3); f.subVectors(b, a).cross(c.clone().sub(a)); if (f.dot(hint) < 0) f.negate(); n.add(f); }
+      n.normalize(); const u = new V3(0, 1, 0).cross(n).normalize(); if (u.x * side < 0) u.negate(); const v = n.clone().cross(u).normalize(); if (v.y < 0) v.negate();
+      const cen = geo.boundingBox.getCenter(new V3()); let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9, n1 = -1e9;
+      for (let i = 0; i < P.length; i += 3) { a.fromArray(P, i).sub(cen); const pu = a.dot(u), pv = a.dot(v), pn = a.dot(n); u0 = Math.min(u0, pu); u1 = Math.max(u1, pu); v0 = Math.min(v0, pv); v1 = Math.max(v1, pv); n1 = Math.max(n1, pn); }
+      const ray = new THREE.Raycaster(); ray.params.Mesh = {};
+      // a point on the lens at (fu, fv), then `depth` metres in behind it
+      const at = (fu, fv, depth) => {
+        const q = cen.clone().addScaledVector(u, u0 + fu * (u1 - u0)).addScaledVector(v, v0 + fv * (v1 - v0));
+        ray.set(q.clone().addScaledVector(n, n1 + 0.5), n.clone().negate()); const h = ray.intersectObject(x, false)[0];
+        const s = h ? h.point : q.addScaledVector(n, n1); return s.addScaledVector(n, -depth);
+      };
+      const qf = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, n));
+      const place = (m, p) => { m.position.copy(p); m.quaternion.copy(qf); g.add(m); return m; };
+      // housing: the lens shape moved back, joined to the lens round its edge
+      const back = n.clone().multiplyScalar(-H.d), hm = headMats[H.house];
+      const bg = new THREE.BufferGeometry(); bg.setAttribute('position', geo.attributes.position.clone()); bg.setIndex(geo.index.clone()); bg.translate(back.x, back.y, back.z);
+      const edges = new Map(), key = i => { a.fromArray(P, i * 3); return Math.round(a.x * 2000) + ',' + Math.round(a.y * 2000) + ',' + Math.round(a.z * 2000); };
+      for (let i = 0; i < I.length; i += 3) for (let k = 0; k < 3; k++) { const i0 = I[i + k], i1 = I[i + (k + 1) % 3], k0 = key(i0), k1 = key(i1), e = k0 < k1 ? k0 + '|' + k1 : k1 + '|' + k0; const r = edges.get(e); if (r) r.n++; else edges.set(e, { n: 1, i0, i1 }); }
+      const sk = []; for (const e of edges.values()) if (e.n === 1) { a.fromArray(P, e.i0 * 3); b.fromArray(P, e.i1 * 3); const a2 = a.clone().add(back), b2 = b.clone().add(back); sk.push(...a.toArray(), ...b.toArray(), ...b2.toArray(), ...a.toArray(), ...b2.toArray(), ...a2.toArray()); }
+      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sk, 3));
+      const merged = [bg.toNonIndexed(), sg]; const all = new Float32Array(merged.reduce((t, m) => t + m.attributes.position.count * 3, 0)); let o2 = 0; for (const m of merged) { all.set(m.attributes.position.array, o2); o2 += m.attributes.position.array.length; }
+      const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.BufferAttribute(all, 3)); hg.computeVertexNormals();
+      g.add(new THREE.Mesh(hg, hm));
+      const glow = [], dv = v1 - v0; let main = null;
+      for (const [t, p1, p2, p3, p4] of H.items) {
+        if (t === 'bulb') { const m = place(new THREE.Mesh(new THREE.SphereGeometry(p3, 14, 10), headM), at(p1, p2, H.d * 0.55)); glow.push(m); main = main || m; }
+        else if (t === 'cup') { const m = place(new THREE.Mesh(new THREE.CylinderGeometry(p3, p3 * 0.25, H.d * 0.7, 24, 1, true), headMats.chrome), at(p1, p2, H.d * 0.62)); m.rotateX(Math.PI / 2); }
+        else if (t === 'proj') { const pos = at(p1, p2, H.d * 0.45); const m = place(new THREE.Mesh(new THREE.CylinderGeometry(p3, p3, 0.03, 24), headMats.projGlass), pos); m.rotateX(Math.PI / 2);
+          place(new THREE.Mesh(new THREE.TorusGeometry(p3 * 1.15, 0.006, 8, 28), headMats.bezel), pos.clone().addScaledVector(n, 0.012));
+          const lit = place(new THREE.Mesh(new THREE.CircleGeometry(p3 * 0.55, 20), headM), pos.clone().addScaledVector(n, 0.0155)); glow.push(lit); main = main || lit; }
+        else if (t === 'park') { place(new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 8), amberM), at(p1, p2, H.d * 0.5)); }
+        else if (t === 'div') { for (let k = 0; k < 5; k++) place(new THREE.Mesh(new THREE.BoxGeometry(0.004, dv * 0.22, H.d * 0.9), headMats.dark), at(p1, 0.1 + k * 0.2, H.d * 0.5)); }
+        else if (t === 'flutes') { for (let k = 0; k < p3; k++) place(new THREE.Mesh(new THREE.BoxGeometry(0.0035, dv * 0.86, 0.002), headMats.flute), at(p1 + (p2 - p1) * k / (p3 - 1), 0.5, 0.004)); }
+        else if (t === 'brow') { for (let k = 0; k <= 8; k++) { const fu = p1 + (p3 - p1) * k / 8; place(new THREE.Mesh(new THREE.BoxGeometry((u1 - u0) * (p3 - p1) / 8 * 1.15, dv * 0.3, 0.004), headMats.black), at(fu, p2 + 0.18, H.d * 0.25)); } }
+        else if (t === 'led') { const pos = at(p1, p2, H.d * 0.5); place(new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.036, 0.03), headMats.bezel), pos); place(new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.026, 0.004), headMats.projGlass), pos.clone().addScaledVector(n, 0.016)); }
+        else if (t === 'drl') { const pos = at(p1, p2, H.d * 0.4), up = v.clone().multiplyScalar(0.03), out = u.clone().multiplyScalar(0.036);
+          const hb = place(new THREE.Mesh(new THREE.BoxGeometry(0.078, 0.007, 0.007), headM), pos.clone().add(up)); hb.rotateZ(0); glow.push(hb);
+          const vb = place(new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.05, 0.007), headM), pos.clone().add(out).addScaledVector(v, 0.006)); glow.push(vb); main = main || hb; }
+        else if (t === 'blue') { const m = place(new THREE.Mesh(new THREE.BoxGeometry((u1 - u0) * (p3 - p1), 0.006, 0.006), headMats.blue), at((p1 + p3) / 2, p2, H.d * 0.3)); }
+      }
+      for (const m of glow) m.userData.m0 = headM;
+      g.add(x); upper.add(g);
+      l.g = g; l.parts = [x, ...glow]; l.at = main ? main.position.clone() : cen.clone();
+      if (l.broken) for (const p of l.parts) p.material = brokenM;
+    }
     function applySkin(S) {
       if (!S || skinned || disposed) return;
       const m = S.meta;
@@ -34153,7 +34221,9 @@ await __LDstep(55);
       const used = new Set();
       for (const [list, pre, mat] of [[lamps.head, 'head', headM], [lamps.tail, 'tail', tailM]]) for (const l of list) {
         const nm = pre + (l.side < 0 ? 'L' : 'R'); if (used.has(nm)) { l.parts = []; l.broken = true; continue; } used.add(nm);
-        const x = mk(nm, true); if (!x) continue; x.material = l.broken ? brokenM : mat; upper.add(x); l.g = x; l.parts = [x]; l.at = x.geometry.boundingBox.getCenter(new V3());
+        const x = mk(nm, true); if (!x) continue;
+        if (pre === 'head' && HEAD[MD.id]) { headLamp(x, l); continue; }
+        x.material = l.broken ? brokenM : mat; upper.add(x); l.g = x; l.parts = [x]; l.at = x.geometry.boundingBox.getCenter(new V3());
       }
       glows.head.forEach((s, i) => { const l = lamps.head[i]; if (l) s.position.copy(l.at).add(new V3(0, 0, -0.08)); });
       glows.tail.forEach((s, i) => { const l = lamps.tail[i]; if (l) s.position.copy(l.at).add(new V3(0, 0, 0.05)); });
