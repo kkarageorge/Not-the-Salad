@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9055467</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9058771</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -3428,7 +3428,7 @@ function* flattenTileInner(sceneObj) {
     FTS = 'lm';
     // landmarks: measure the ground around each one, then sink Google's copy of it out of sight
     for (const [Lm, a] of ringAcc) if (a.n >= 4) lmSetBase(Lm, a.min, a.n);
-    if (anyLm) for (let n = 0; n < cnt; n++) { if ((n & 15) === 15 && performance.now() > FTD) yield; const id = lmIdx[n]; if (!id) continue; const Lm = LM[id - 1]; if (Lm.base == null) { if (!Lm.flat && Lm.kind.startsWith('lmx-')) { fl[n] = 6; anyDel = changed = true; } continue; } const y = Math.min(L[n * 3 + 1], Lm.base - (Lm.flat ? 0.05 : 0.6)); if (y !== L[n * 3 + 1]) { L[n * 3 + 1] = y; fl[n] = 3; changed = true; } }
+    if (anyLm) for (let n = 0; n < cnt; n++) { if ((n & 15) === 15 && performance.now() > FTD) yield; const id = lmIdx[n]; if (!id) continue; const Lm = LM[id - 1]; if (Lm.base == null) { if (!Lm.flat && Lm.kind.startsWith('lmx-')) { fl[n] = 6; anyDel = changed = true; } continue; } const y = Math.min(L[n * 3 + 1], Lm.sinkAt ? Lm.sinkAt(L[n * 3], L[n * 3 + 2]) : Lm.base - (Lm.flat ? 0.05 : 0.6)); if (y !== L[n * 3 + 1]) { L[n * 3 + 1] = y; fl[n] = 3; changed = true; } }   // sinkAt: sloped lots (lmx-post.js) sink Google's copy just under our ground, following the slope
     FTS = 'pull';
     // pull down canopy vertices still standing next to flattened ones, so no spikes are left behind
     if (changed) {
@@ -27070,7 +27070,7 @@ const BUILT_FRONT = [];   // frontage segments, drawn after the buildings
     const R0 = road[B.j], toRoad = new THREE.Vector2(R0.p.x - B.cx, R0.p.y - B.cz).normalize(); let front = 0, fbest = -2;
     for (let i = 0; i < n; i++) { const a = B.pl[i], b = B.pl[(i + 1) % n], e = b.clone().sub(a); const nrm = new THREE.Vector2(e.y, -e.x).normalize(); const dd = nrm.dot(toRoad) * Math.min(1, e.length() / 4); if (dd > fbest) { fbest = dd; front = i; } }
     // where our ground under the footprint lies below the baked base (lots falling away from the road), a plain plinth in the wall colour carries the walls down to it
-    if (B.gmin < B.base - 0.3) { const Pl = get(c, 'plain'); tc.copy(wc).multiplyScalar(0.8); const yp = B.gmin - 0.6; for (let i = 0; i < n; i++) { const a = B.pl[i], b = B.pl[(i + 1) % n]; quad(Pl, [a.x, yp, a.y], [b.x, yp, b.y], [a.x, y0 + 0.02, a.y], [b.x, y0 + 0.02, b.y], [0, 0, 1, 0, 0, 1, 1, 1], tc); } }
+    { const Pl = get(c, 'plain'); /* 7 Nov: every building gets the plinth (was only where our ground fell 0.3 m below the base) */ tc.copy(wc).multiplyScalar(0.8); const yp = B.gmin - 2.5; /* 7 Nov: well below the lowest corner, so the wall meets Google's ground where it falls away further */ for (let i = 0; i < n; i++) { const a = B.pl[i], b = B.pl[(i + 1) % n]; quad(Pl, [a.x, yp, a.y], [b.x, yp, b.y], [a.x, y0 + 0.02, a.y], [b.x, y0 + 0.02, b.y], [0, 0, 1, 0, 0, 1, 1, 1], tc); } }
     // walls: ground storey and upper storeys can differ (shopfronts under offices or flats)
     const yg = Math.min(y1, B.base + STOREY + 0.4);
     const Wg = get(c, facadeKey(mat, groundWin)), Wu = get(c, facadeKey(mat, upperWin));
@@ -29167,7 +29167,8 @@ await __LDstep(46);
   //   The lot's Google copy is sunk under the lowest ground of the lot, and the ring reading is ignored (it included the road itself).
   // Modules that build in world coordinates and fit themselves to the road, or sit on the escarpment, bridges or water, are left alone.
   const OWN_H = /^(pgnorth|pgsouth|mprEast\d*|narrows|seawall|surreyback|millramp|gffgeh|stirside|streetext|turnext|boats|mtstreet|mounthosp|kingspark|rvgeh3|rvgeh4|causeway|oldmill|burswood|rpyc|boatshed|coodeJetty|mbwaters|spForeshore|matilda|cbd)$/;
-  const KH = (typeof KERB_H === 'number' ? KERB_H : 0.15) - 0.04;   // the corridor footpath level in scenery.js: r.h + KERB_H - 0.04
+  const KH = (typeof KERB_H === 'number' ? KERB_H : 0.15) - 0.04;
+  const lmxSkirtMat = new THREE.MeshStandardMaterial({ color: 0x6a5a48, roughness: 1, metalness: 0, side: THREE.DoubleSide });   // earth/limestone bank under every lot   // the corridor footpath level in scenery.js: r.h + KERB_H - 0.04
   let gGrid = null; const roadHAt = (x, z) => {   // road height beside (x, z), interpolated along the route; null if no sample within 70 m
     if (!gGrid) { gGrid = new Map(); for (let j = 0; j < road.length; j++) { const r = road[j], key = Math.floor(r.p.x / 30) * 65536 + Math.floor(r.p.y / 30); (gGrid.get(key) || gGrid.set(key, []).get(key)).push(j); } }
     const cx = Math.floor(x / 30), cz = Math.floor(z / 30); let bj = -1, bd = 70 * 70;
@@ -29186,10 +29187,24 @@ await __LDstep(46);
     const o = part.obj; o.updateWorldMatrix(true, true);
     // tree markers for lmx-trees.js: planted at the ground under them
     o.traverse(m => { if (m.userData && m.userData.lmxTree && m.parent) { const w = new THREE.Vector3(); m.getWorldPosition(w); const g = G(w.x, w.z); if (g != null) m.position.y += g - g0; } });
-    if (gmax - gmin < FLAT_TOL) { window.__lmxGround.flat++; return { g0, gmin }; }   // level lot: one height is right
+    // 7 Nov (Kostas: "buildings don't connect with the road, you can see through the ground"): Google's real ground outside a lot
+    // often lies 1-4 m below our lot edge (the zoo, Hackett Dr, the Nedlands hotel), and through that cliff you saw the sunk Google
+    // copy and the underside of the lawn. Every lot now gets an earth skirt around its footprint: top just under the lawn edge, bottom
+    // 2 m below Google's measured surface outside (or 4 m down where that is unknown), so the lot always meets the ground.
+    const skirt = (() => { try {
+      const outer = (x, z) => { const ra = rastAt(x, z); if (!ra || ra.j < 0) return null; const r = road[ra.j], lat = (x - r.p.x) * r.r.x + (z - r.p.y) * r.r.y, s = lat > 0 ? 1 : 0, edge = Math.abs(lat) - r.w / 2; if (edge < 2.9) return r.h; const k = Math.round((edge - LBASE) / LSTEP); if (k < 0 || k >= NL) return null; const t = TER[cell(ra.j, s, k)]; return t === t ? t : null; };
+      const pts = []; for (let i = 0; i < fp.length; i++) { const a = fp[i], b = fp[(i + 1) % fp.length], L = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(1, Math.ceil(L / 3)); for (let k = 0; k < n; k++) pts.push([a.x + (b.x - a.x) * k / n, a.z + (b.z - a.z) * k / n]); }
+      if (pts.length < 3) return null; const inv = new THREE.Matrix4().copy(o.matrixWorld).invert(), P = [], I = [], w = new THREE.Vector3();
+      let hasMesh = false; o.traverse(m => { if (m.isMesh) hasMesh = true; }); const flatLot = !hasMesh || gmax - gmin < FLAT_TOL;   // an anchor-only lot (pgkeane: its lawn is drawn elsewhere, flat at g0) or a level lot: the skirt top sits just under that one level
+      for (let i = 0; i < pts.length; i++) { const [x, z] = pts[i], gt = G(x, z) ?? g0, to = outer(x, z), bot = Math.min(gt - 4, to == null ? gt - 4 : to - 2, gmin - 2);
+        w.set(x, (flatLot ? g0 - 0.03 : gt - 0.15) - g0, z).applyMatrix4(inv); P.push(w.x, w.y, w.z); w.set(x, bot - g0, z).applyMatrix4(inv); P.push(w.x, w.y, w.z);
+        const a = i * 2, b = ((i + 1) % pts.length) * 2; I.push(a, b, a + 1, b, b + 1, a + 1); }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setIndex(I); geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, lmxSkirtMat); m.name = 'lmx-skirt'; m.receiveShadow = true; m.userData.lmxSkirt = true; o.add(m); return m; } catch (e) { console.warn('lmx skirt', e); return null; } })();
+    if (gmax - gmin < FLAT_TOL) { window.__lmxGround.flat++; return { g0, gmin, skirt }; }   // level lot: one height is right
     // every vertex: world (x, y, z) and the ground G under it. Pieces are found by shared vertex positions (1 cm) across all the part's meshes.
     const v = new THREE.Vector3(), meshes = [], seenGeo = new Set(); let vbase = 0;
-    o.traverse(m => { if (!m.isMesh || !m.geometry || !m.geometry.attributes.position || m.isInstancedMesh) return; if (seenGeo.has(m.geometry)) m.geometry = m.geometry.clone(); seenGeo.add(m.geometry); meshes.push({ m, vb: vbase }); vbase += m.geometry.attributes.position.count; });
+    o.traverse(m => { if (!m.isMesh || !m.geometry || !m.geometry.attributes.position || m.isInstancedMesh || (m.userData && m.userData.lmxSkirt)) return; if (seenGeo.has(m.geometry)) m.geometry = m.geometry.clone(); seenGeo.add(m.geometry); meshes.push({ m, vb: vbase }); vbase += m.geometry.attributes.position.count; });
     const W = new Float32Array(vbase * 3), GW = new Float32Array(vbase); let bx = Infinity, bz = Infinity;
     for (const { m, vb } of meshes) { const P = m.geometry.attributes.position; for (let i = 0; i < P.count; i++) { v.set(P.getX(i), P.getY(i), P.getZ(i)).applyMatrix4(m.matrixWorld); W[(vb + i) * 3] = v.x; W[(vb + i) * 3 + 1] = v.y; W[(vb + i) * 3 + 2] = v.z; const g = G(v.x, v.z); GW[vb + i] = g == null ? g0 : g; if (v.x < bx) bx = v.x; if (v.z < bz) bz = v.z; } }
     const par = new Int32Array(vbase); for (let i = 0; i < vbase; i++) par[i] = i;
@@ -29222,7 +29237,7 @@ await __LDstep(46);
     o.traverse(m => { if (!m.isInstancedMesh) return; const M = new THREE.Matrix4(), pw = new THREE.Vector3(); m.updateWorldMatrix(true, false); const inv = new THREE.Matrix4().copy(m.matrixWorld).invert();
       for (let i = 0; i < m.count; i++) { m.getMatrixAt(i, M); pw.setFromMatrixPosition(M).applyMatrix4(m.matrixWorld); const g = G(pw.x, pw.z); if (g == null) continue; pw.y += g - g0; pw.applyMatrix4(inv); M.setPosition(pw); m.setMatrixAt(i, M); } m.instanceMatrix.needsUpdate = true; });
     window.__lmxGround.fixed++; window.__lmxGround.rigid += nR; window.__lmxGround.soft += nS; window.__lmxGround.parts.push([R.name, part.name || '', +(gmax - gmin).toFixed(2), nR, nS]);
-    return { g0, gmin };
+    return { g0, gmin, sloped: true };
   };
   // pgnorth, pgsouth and mprEast are left out: they already set their own heights from the game's road (PROF table / ANCH pins /
   // per-anchor vertex heights), so following again doubled it and lifted lawns and houses off the street (Kostas 5 Nov: houses in
@@ -29236,7 +29251,7 @@ await __LDstep(46);
       if (part.sink === 'flat') L.flat = true;   // water: Google's melted boats/buoys inside are pressed flat onto the surface (not sunk below it)
       placed(L, part.obj, part.dy || 0);
       let gp = null; if (!OWN_H.test(R.name) && part.sink !== 'flat' && !(window.__lmxNoGround)) { try { gp = groundPart(R, part); } catch (e) { console.warn('lmx ground', R.name, part.name, e); gp = null; } }
-      if (gp) { const prev = L.onBase; L.onBase = y => { prev && prev(y); part.obj.position.y = gp.g0 + (part.dy || 0); L.base = gp.gmin - 0.3; L.grounded = true; }; L.nearRoad = null; }   // road datum wins over the ring reading; Google's copy sinks under the lowest ground of the lot
+      if (gp) { const prev = L.onBase; L.onBase = y => { prev && prev(y); part.obj.position.y = gp.g0 + (part.dy || 0); L.base = gp.gmin - 0.3; L.grounded = true; }; L.nearRoad = null; if (gp.sloped) L.sinkAt = (x, z) => { const g = G(x, z); return (g == null ? gp.gmin : g) - 0.6; }; }   // road datum wins over the ring reading; Google's copy sinks 0.6 m under our ground, following the slope (not into a pit under the uphill end)
       else { window.__lmxGround.skipped++; if (FOLLOW_OK.test(R.name) && longPart(part.ll)) follow.push({ obj: part.obj, y0: new Map(), at: null }); }
       { clearCanopy(part.obj); pendingClear.push(part.obj); }
     }
@@ -29244,6 +29259,7 @@ await __LDstep(46);
   }
   { const _u = updateLandmarks; let t = 0; updateLandmarks = dt => { _u(dt); t += dt; for (const F of follow) if (F.obj.visible !== false && Math.abs(F.obj.position.y) < 900 && F.obj.position.y !== F.at) followRoad(F); for (const u of lmxUpd) u(dt, t); ++clearFrames; window.__lmxFrames = clearFrames; window.__lmxPend = pendingClear.length; if (pendingClear.length && (clearFrames === 3 || clearFrames === 40 || clearFrames === 150 || clearFrames === 500 || clearFrames === 1500)) { for (const o of pendingClear) { clearCanopy(o); clearLanes(o); } if (clearFrames === 1500) pendingClear.length = 0; } }; }   // clearance again at frames 3/40/150/500: the lots move to their measured ground height once Google's tiles are in
   window.__lmx = { LMX_OUT, clearCanopy, follow };
+  window.__lmxEnv = { G, roadHAt, road, LM, TER, cell, NL, LBASE, LSTEP, rastAt, groundAt, BLDS, lmxHole: window.lmxHole };   // diagnostics (gap survey, scratch probe.js)
 }
 
 await __LDstep(47);
