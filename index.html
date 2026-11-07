@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9027175</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9055467</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -3289,7 +3289,7 @@ function buildRoad() {
                 else if (kind === 'timber') wall(TW, 6);
                 else if (kind === 'hoard') wall(LS);   // 6 Nov: the survey's dark construction hoarding read as a black gap under the raised lawns on Keane St (run feedback item 9); a limestone retaining wall, as along the rest of Peppermint Grove
                 else { wall([BW, WR, LS][wk]); if (Math.floor(r1.d / 3.6) !== Math.floor(r0.d / 3.6)) pillars.push([i, h0, wk]); }
-              } else if (kind !== 'hedge' && kind !== 'picket' && kind !== 'timber' && kind !== 'hoard' && (inLot < 16.5 + 1 || inLot >= 20.2 - 1) && Math.floor(r1.d / 3.6) !== Math.floor(r0.d / 3.6)) pillars.push([i, h0, wk]);   // gate piers
+              } else if (!inLmx && kind !== 'hedge' && kind !== 'picket' && kind !== 'timber' && kind !== 'hoard' && (inLot < 16.5 + 1 || inLot >= 20.2 - 1) && Math.floor(r1.d / 3.6) !== Math.floor(r0.d / 3.6)) pillars.push([i, h0, wk]);   // gate piers
             }
           } else if (!nearTurn) {
           const po0 = s * (E0 + KERB_W + PATH_W), po1 = s * (E1 + KERB_W + PATH_W);
@@ -9025,7 +9025,8 @@ LMX.streetext = function (H) {
   const STREETS = [
     // (Stirling Hwy past the Richardson Ave turn moved to turnext.js, 6 Nov)
     // Columba Place west of the finish (OSM residential, 2 lanes)
-    { name: 'columba-w', w: 6.4, cl: 'none', ll: [[-32.002451, 115.763657], [-32.002449, 115.763136], [-32.002484, 115.762911], [-32.002484, 115.762102]], startOff: 2 },
+    // columba-w removed 6 Nov (Columba Pl rebuild): house7c.js now draws the last 28 m of Columba Pl and its dead end
+    // { name: 'columba-w', w: 6.4, cl: 'none', ll: [[-32.002451, 115.763657], [-32.002449, 115.763136], [-32.002484, 115.762911], [-32.002484, 115.762102]], startOff: 2 },
   ];
   const KH = 0.15, KW = 0.3, VERGE = 2.6, PATHW = 1.5, LAWN = 4.0;
   const B = () => ({ p: [], uv: [], i: [] });
@@ -19705,6 +19706,191 @@ LMX.house7c = function (H) {
       strip(B.pave, [[111.9, 4.8], [111.9, -4.0], [110.6, -8.6], [107.0, -12.0], [104.0, -12.6]], 1.5, COL.conc, 0.05);
     }
   }
+  // ================================================================ (6 Nov 2026, Kostas: "Columba Place needs a lot of work" / "same treatment and
+  // quality as Surrey Rd") THE SOUTH SIDE of Columba Pl, all seven lots from the school fence to Venn St, plus its verge, crossovers,
+  // bins, letterboxes and the willow peppermints that line it. Street View May 2024 (panos every ~20 m along the street, looking
+  // south plus obliques), Landgate cadastre for the lot lines. Lot faces are seen; depths, rear wings and side windows are GUESSED.
+  // Front boundary n -27.8 west of e 47.8 and n -24.0 east of it (the reserve jogs north with the route). Kerb = route - 3.45.
+  const kerbS = e => routeN(e) - 3.45;
+  const FS = e => e < 47.8 ? -27.8 : -24.0;
+  // south ground: street height + measured fall (Google mesh probe, metres, negative = below the kerb), eased over 0.8 m behind the kerb
+  const sAtS = e => sAt(e);
+  // The south lots fall away from the street (Kostas's hill: rear yards 2-4 m below the kerb). Google's mesh in the street corridor was
+  // flattened by the game, so the in-game probe only saw the fall at the far west (-2..-3.5 m at the back of the last lot) and on the
+  // edges; the front 6 m stays at kerb level (Street View: walls and gates sit level with the verge), then a smooth fall to the rear.
+  const fallS = e => e < -10 ? 2.8 : e < 40 ? 2.8 - (e + 10) / 50 * 1.3 : 1.5;
+  const rS = (e, n) => { const t = Math.min(1, Math.max(0, (kerbS(e) - n - 6) / 30)); return -fallS(e) * t * t * (3 - 2 * t); };
+  const ghS = (e, n) => { const d = kerbS(e) - n, t = Math.min(1, Math.max(0, d / 0.8)); return sAtS(e) + 0.06 + rS(e, n) * t; };
+  const SW = { e: 115.1 - 8, n: 0, r: 8 };   // SW corner of the junction: kerb return from the south kerb into Venn St's west kerb (going south)
+  SW.n = kerbS(107) - SW.r;
+  const northS = e => e < SW.e ? kerbS(e) : SW.n + Math.sqrt(Math.max(0, SW.r * SW.r - (e - SW.e) ** 2));   // inner (street) edge of our south ground
+  const bin = (e, n, lid) => { const y = ghS(e, n); box(B.plain, e - 0.3, e + 0.3, n - 0.37, n + 0.37, y, y + 1.0, C('#2f5a33')); box(B.plain, e - 0.33, e + 0.33, n - 0.4, n + 0.4, y + 1.0, y + 1.08, C(lid)); };
+  const crossover = (e, w, col = COL.conc) => strip(B.pave, [[e, kerbS(e) - 0.02], [e, FS(e) - 0.05]], w, col);   // drive across the verge (follows ghS via gh? no: own)
+  function stripS(bk, pts, w, col, dy = 0.035) {
+    const L = [], R = [];
+    for (let i = 0; i < pts.length; i++) { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b[0] - a[0], dn = b[1] - a[1], l = Math.hypot(dx, dn) || 1, px = -dn / l * w / 2, pn = dx / l * w / 2;
+      L.push([pts[i][0] + px, pts[i][1] + pn]); R.push([pts[i][0] - px, pts[i][1] - pn]); }
+    for (let i = 0; i < pts.length - 1; i++) { const q = [L[i], L[i + 1], R[i + 1], R[i]].map(([e, n]) => [e, ghS(e, n) + dy, n]); quadPts(bk, q, col); }
+  }
+  const drive = (e, w, n1, col = COL.conc) => stripS(B.pave, [[e, kerbS(e) - 0.02], [e, n1]], w, col);
+  // front boundary run: rendered wall panels (h) with piers every `step`; or a hedge; follows the ground
+  function wallRun(e0, e1, h, col = W1, step = 3.0, pier = 0.5) {
+    for (let e = e0; e < e1 - 0.01; e += step) { const e2 = Math.min(e1, e + step), n = FS(e) + 0.15, y0 = ghS(e, n) - 0.4, y1 = ghS(e2, n) - 0.4;
+      quadPts(B.render, [[e2, y1, n + 0.12], [e, y0, n + 0.12], [e, y0 + h + 0.4, n + 0.12], [e2, y1 + h + 0.4, n + 0.12]], col);
+      quadPts(B.render, [[e, y0, n - 0.12], [e2, y1, n - 0.12], [e2, y1 + h + 0.4, n - 0.12], [e, y0 + h + 0.4, n - 0.12]], col);
+      quadPts(B.plain, [[e, y0 + h + 0.4, n + 0.15], [e2, y1 + h + 0.4, n + 0.15], [e2, y1 + h + 0.4, n - 0.15], [e, y0 + h + 0.4, n - 0.15]], COL.white);
+      box(B.render, e - pier / 2, e + pier / 2, n - pier / 2, n + pier / 2, y0, y0 + h + 0.55, col); }
+    const n = FS(e1) + 0.15, y = ghS(e1, n) - 0.4; box(B.render, e1 - pier / 2, e1 + pier / 2, n - pier / 2, n + pier / 2, y, y + h + 0.55, col);
+  }
+  function hedgeRun(e0, e1, h, d = 1.0, col = COL.hedge) { for (let e = e0; e < e1 - 0.01; e += 2.5) { const e2 = Math.min(e1, e + 2.5), n = FS(e) - 0.2 - d / 2, y = Math.min(ghS(e, n), ghS(e2, n));
+    box(B.leaf, e + 0.05, e2 - 0.05, n - d / 2, n + d / 2, y - 0.2, y + h, col.map(v => v * (0.92 + rnd() * 0.16))); } }
+  // gate panel in a gap of the front line (atlas key), facing the street
+  const gate = (e0, e1, h, key) => { const n = FS(e0) + 0.15, y = ghS((e0 + e1) / 2, n); onWall('N', n, e0, e1, y - 0.05, y + h, key, W1, 0.0); onWall('S', n, e0, e1, y - 0.05, y + h, key, W1, 0.0); };
+  const letterbox = (e, col = W1) => { const n = FS(e) + 0.5, y = ghS(e, n); box(B.render, e - 0.25, e + 0.25, n - 0.25, n + 0.25, y - 0.3, y + 1.2, col); box(B.plain, e - 0.18, e + 0.18, n + 0.25, n + 0.27, y + 0.75, y + 1.0, COL.dark); };
+  // a gum (lemon-scented / flooded gum look): tall pale trunk, open canopy of clumps
+  function gum(e, n, y0, hgt, spread) { const top = trunk(e, n, y0, hgt * 0.55, 0.32, 0.22, 0.08, rnd() * 6, COL.trunkPale);
+    for (let k = 0; k < 4; k++) { const a = k * 1.6 + rnd(); const p = trunk(top[0], top[2], top[1] - 0.4, hgt * 0.35, 0.18, 0.07, 0.5, a, COL.trunkPale); blob(p[0], p[1] + 0.6, p[2], spread * 0.22, hgt * 0.1, spread * 0.22, COL.gum, 0); }
+    blob(top[0], top[1] + hgt * 0.32, top[2], spread * 0.28, hgt * 0.12, spread * 0.28, COL.gum, 0); }
+  const cypress = (e, n, y0, h) => { trunk(e, n, y0, 1, 0.15, 0.12, 0, 0, COL.trunk); for (let k = 0; k < 4; k++) blob(e, y0 + 1 + h * (0.15 + k * 0.2), n, 0.7 - k * 0.12, h * 0.16, 0.7 - k * 0.12, C('#2f4a2a'), 1); };
+  const SOUTH = {}; const roofT = C('#b8603e'), roofBr = C('#5d4b40'), roofG = C('#6e7275');
+  {
+    const R = B.render, P = B.plain, BR = B.brick;
+    // ---- S1 (e -32.6..-12.5): the last lot before the school, Street View p0: low 1970s face-brick house, dark brown tile hip, open
+    // garage on the east, curved red-brick drive, low brick garden walls, big gums; dark-stained timber carport with a brown tile roof.
+    { const n0 = -35.5, F = ghS(-22, n0) + 0.2;
+      box(BR, -30.5, -17.0, -49.0, n0, F - 1.6, F + 2.8, C('#b48a72')); hip(-30.5, -17.0, -49.0, n0, F + 2.8, 0.42, 0.6, roofBr);
+      for (const u of [-28.5, -25.5, -21.0]) onWall('N', n0, u - 0.9, u + 0.9, F + 0.8, F + 2.2, 'alu');
+      onWall('N', n0, -23.6, -22.6, F, F + 2.2, 'door');
+      // garage + carport wing on the east
+      box(BR, -17.0, -13.2, -47.0, n0 + 0.5, F - 1.6, F + 2.6, C('#b48a72')); hip(-17.0, -13.2, -47.0, n0 + 0.5, F + 2.6, 0.42, 0.4, roofBr);
+      onWall('N', n0 + 0.5, -16.6, -13.6, F - 0.05, F + 2.2, 'garBrown');
+      for (const [u, v] of [[-17.0, -30.2], [-13.4, -30.2], [-17.0, -34.6], [-13.4, -34.6]]) box(P, u - 0.09, u + 0.09, v - 0.09, v + 0.09, ghS(u, v) - 0.2, F + 2.5, C('#4a3426'));
+      hip(-17.3, -13.1, -35.0, -29.9, F + 2.5, 0.38, 0.25, roofBr);
+      stripS(B.pave, [[-14.5, kerbS(-14.5) - 0.02], [-15.0, -30.0], [-15.2, -35]], 3.6, COL.pave5);   // red brick drive
+      for (let k = 0; k < 6; k++) { const e = -30 + k * 2.2, n = -31.0 - Math.sin(k * 0.6) * 0.6; box(BR, e, e + 2.2, n - 0.12, n + 0.12, ghS(e, n) - 0.3, ghS(e, n) + 0.55, C('#a8705a')); }   // low brick garden wall
+      gum(-27.5, -30.0, ghS(-27.5, -30), 16, 12); gum(-20.0, -53, ghS(-20, -53), 15, 11); roundTree(-24, -40.5 + 7, ghS(-24, -33.5), 6, 6, COL.shrub);
+      blob(-31, ghS(-31, -29) + 1, -29, 1.8, 1.2, 1.4, COL.hedge, 1); bin(-12.9, kerbS(-12.9) - 0.9, '#c8322a'); bin(-12.1, kerbS(-12.1) - 0.9, '#e5c021');
+      SOUTH.s1 = [-32.6, -12.5];
+    }
+    // ---- S2 (e -12.5..7.6): white rendered front wall panels with clipped hedges between (p2), black iron double gate between white
+    // piers on the west (p1), a two-storey white-rendered house with a terracotta tile hip behind, willow peppermints on the verge.
+    { const n0 = -36.0, F = ghS(-2, n0) + 0.2;
+      box(R, -9.5, 5.5, -49.5, n0, F - 1.6, F + 5.9, W1); hip(-9.5, 5.5, -49.5, n0, F + 5.9, 0.42, 0.55, roofT);
+      box(R, -3.0, 1.5, n0 + 1.2, n0, F - 1.6, F + 3.0, W1); hip(-3.4, 1.9, n0 + 0.6, n0 + 1.6, F + 3.0, 0.42, 0.2, roofT);   // entry porch
+      for (const u of [-7.5, -5.0, 3.5]) { onWall('N', n0, u - 0.8, u + 0.8, F + 0.6, F + 2.4, 'sash', W1); onWall('N', n0, u - 0.8, u + 0.8, F + 3.6, F + 5.1, 'sash', W1); }
+      onWall('N', n0 + 1.2, -1.2, -0.2, F, F + 2.4, 'door'); onWall('N', n0, -1.4, 0.2, F + 3.6, F + 5.1, 'sash', W1);
+      const pierCol = C('#f4f2ec'); gate(-11.6, -7.4, 1.9, 'iron'); for (const u of [-11.9, -7.1]) { const n = FS(u) + 0.15, y = ghS(u, n); box(R, u - 0.3, u + 0.3, n - 0.3, n + 0.3, y - 0.4, y + 2.25, pierCol); }
+      for (const [a, b] of [[-6.8, -2.2], [-1.4, 3.0], [3.8, 7.4]]) wallRun(a, b, 1.6, W1, 4.6, 0.55);
+      hedgeRun(-7.1, 7.4, 1.3, 0.8);   // hedge behind the wall shows through the gaps
+      drive(-9.5, 4.0, FS(-9.5), COL.conc); stripS(B.pave, [[-9.5, FS(-9.5)], [-9.5, -34]], 4.0, COL.pave5);
+      bin(-6.2, kerbS(-6.2) - 0.9, '#c8322a'); letterbox(-12.1, pierCol);
+      SOUTH.s2 = [-12.5, 7.6];
+    }
+    // ---- S3 (e 7.6..27.7): grey slatted sliding gate between white piers (p3), tall hedge along the rest of the frontage, bins on the
+    // verge; low white-rendered house with terracotta hips and a flat-roofed glazed wing.
+    { const n0 = -38.0, F = ghS(17, n0) + 0.2;
+      box(R, 10.0, 25.5, -52.0, n0, F - 1.6, F + 3.2, W1); hip(10.0, 25.5, -52.0, n0, F + 3.2, 0.45, 0.55, roofT);
+      box(R, 18.0, 25.0, n0 + 2.5, n0, F - 1.6, F + 3.0, W1); flat(P, 17.8, 25.2, n0 - 0.2, n0 + 2.7, F + 3.02, C('#cfccc4'));
+      onWall('N', n0 + 2.5, 18.6, 24.4, F + 0.3, F + 2.4, 'aluWide'); for (const u of [12.0, 15.0]) onWall('N', n0, u - 0.8, u + 0.8, F + 0.8, F + 2.2, 'alu');
+      for (const u of [8.4, 13.2]) { const n = FS(u) + 0.15, y = ghS(u, n); box(R, u - 0.3, u + 0.3, n - 0.3, n + 0.3, y - 0.4, y + 2.0, W1); }
+      gate(8.7, 12.9, 1.8, 'gateGrey'); wallRun(13.2, 14.6, 1.6);
+      hedgeRun(14.6, 27.5, 2.3, 1.2);
+      drive(10.8, 4.0, FS(10.8)); stripS(B.pave, [[10.8, FS(10.8)], [10.8, -37.5]], 4.0, C('#9c9890'));
+      bin(14.2, kerbS(14.2) - 0.9, '#c8322a'); bin(15.0, kerbS(15.0) - 0.9, '#2f7d3a'); bin(15.8, kerbS(15.8) - 0.9, '#2f7d3a'); bin(16.6, kerbS(16.6) - 0.9, '#c8322a');
+      letterbox(13.9);
+      SOUTH.s3 = [7.6, 27.7];
+    }
+    // ---- S4 (e 27.7..47.8): white-rendered flat portal carport right on the front line (p4), white walls either side, a clipped hedge
+    // to the east; single-storey white-render house with terracotta hips behind, willow peppermint over the front.
+    { const n0 = -37.0, F = ghS(38, n0) + 0.2;
+      box(R, 29.5, 46.0, -51.0, n0, F - 1.6, F + 3.2, W1); hip(29.5, 46.0, -51.0, n0, F + 3.2, 0.45, 0.55, roofT);
+      for (const u of [34.0, 40.5, 43.5]) onWall('N', n0, u - 0.9, u + 0.9, F + 0.7, F + 2.3, 'sash', W1); onWall('N', n0, 37.0, 38.2, F, F + 2.4, 'door');
+      // portal carport: two rendered side blades + flat beam, open front (cars shown under it in Street View)
+      const cn = FS(30) + 0.2, yc = ghS(33, cn);
+      box(R, 29.8, 30.4, cn - 6.0, cn, yc - 0.3, yc + 2.9, W1); box(R, 36.2, 36.8, cn - 6.0, cn, yc - 0.3, yc + 2.9, W1);
+      box(R, 29.8, 36.8, cn - 6.0, cn, yc + 2.6, yc + 3.1, W1); flat(B.pave, 30.4, 36.2, cn - 6.0, cn, yc + 0.02, COL.conc);
+      wallRun(27.9, 29.6, 1.7); wallRun(37.0, 39.5, 1.7); hedgeRun(39.5, 47.6, 2.0, 1.1);
+      drive(33.3, 6.0, FS(33.3));
+      bin(38.6, kerbS(38.6) - 0.9, '#e5c021'); bin(39.4, kerbS(39.4) - 0.9, '#c8322a'); letterbox(37.6);
+      SOUTH.s4 = [27.7, 47.8];
+    }
+    // ---- S5 (e 47.8..67.9): the modern house (y-Ub 140 / km5 210): two-storey, cream render ground floor, upper floor in white with
+    // a long horizontal window band under a low dark skillion roof with deep eaves, brown timber-look garage door, grey rendered low
+    // wall with black palisade on the front line, pencil cypresses and two deciduous trees.
+    { const n0 = -32.0, F = ghS(58, n0) + 0.2;
+      box(R, 50.0, 66.0, -47.0, n0, F - 1.6, F + 3.1, C('#efe6d2'));
+      box(R, 49.4, 64.0, -45.0, n0 + 0.6, F + 3.1, F + 6.0, W1);
+      quadPts(B.roof, [[48.6, F + 6.2, n0 + 1.6], [64.8, F + 6.2, n0 + 1.6], [64.8, F + 6.8, -46.0], [48.6, F + 6.8, -46.0]], C('#4a4744'));
+      box(P, 48.6, 64.8, n0 + 1.5, n0 + 1.7, F + 6.0, F + 6.25, C('#4a4744'));
+      onWall('N', n0 + 0.6, 50.0, 63.4, F + 3.9, F + 5.3, 'aluWide');
+      onWall('N', n0, 51.0, 56.6, F - 0.05, F + 2.3, 'garBrown'); onWall('N', n0, 59.0, 63.5, F + 0.4, F + 2.4, 'aluWide'); onWall('N', n0, 57.4, 58.5, F, F + 2.4, 'door');
+      const gCol = C('#9a9a96'); for (let e = 57.8; e < 67.6; e += 2.4) { const e2 = Math.min(67.6, e + 2.4), n = FS(e) + 0.15, y = ghS(e, n);
+        box(R, e - 0.25, e + 0.25, n - 0.25, n + 0.25, y - 0.4, y + 1.5, gCol); box(R, e, e2, n - 0.15, n + 0.15, y - 0.4, y + 0.5, gCol);
+        onWall('N', n + 0.15, e + 0.25, e2 - 0.25, y + 0.5, y + 1.35, 'iron', W1, 0.0); onWall('S', n - 0.15, e + 0.25, e2 - 0.25, y + 0.5, y + 1.35, 'iron', W1, 0.0); }
+      hedgeRun(57.8, 67.6, 1.0, 0.7);
+      drive(53.8, 6.0, FS(53.8), COL.conc); stripS(B.pave, [[53.8, FS(53.8)], [53.8, n0 - 0.1]], 6.4, COL.conc);
+      cypress(56.6, -27.0, ghS(56.6, -27), 8); cypress(64.5, -27.5, ghS(64.5, -27.5), 7);
+      roundTree(49.6, -27.0, ghS(49.6, -27), 7.5, 7, C('#a4a248')); roundTree(60.5, -29.0, ghS(60.5, -29), 5.5, 5, C('#8aa04a'));
+      bin(57.2, kerbS(57.2) - 0.9, '#c8322a'); bin(58.0, kerbS(58.0) - 0.9, '#e5c021'); letterbox(57.3, gCol);
+      SOUTH.s5 = [47.8, 67.9];
+    }
+    // ---- S6 (e 67.9..88.0): white two-storey "Hamptons" house (km5 150): white weatherboard, grey gabled roof, white tubular-steel
+    // fence and sliding gate across the front, hedge behind, wide concrete drive.
+    { const n0 = -33.0, F = ghS(78, n0) + 0.2;
+      box(R, 70.0, 86.0, -48.0, n0, F - 1.6, F + 6.0, C('#f6f5f1'));
+      for (let y = F + 0.2; y < F + 5.9; y += 1.4) onWall('N', n0, 70.0, 86.0, y, Math.min(F + 6.0, y + 1.4), 'weather', C('#ffffff'), 0.02);
+      hip(70.0, 86.0, -48.0, n0, F + 6.0, 0.6, 0.5, roofG);
+      for (const [a, b] of [[71.0, 76.0]]) { const m = (a + b) / 2, yE = F + 6.0, yR = yE + (b - a) / 2 * Math.tan(0.8);
+        box(R, a, b, n0 + 1.0, n0, F - 1.6, yE, C('#f6f5f1')); triPts(R, [[b, yE, n0 + 1.0], [a, yE, n0 + 1.0], [m, yR, n0 + 1.0]], C('#f6f5f1'));
+        quadPts(B.roof, [[a - 0.3, yE - 0.1, n0 + 1.3], [a - 0.3, yE - 0.1, n0 - 1.5], [m, yR + 0.1, n0 - 1.5], [m, yR + 0.1, n0 + 1.3]], roofG);
+        quadPts(B.roof, [[m, yR + 0.1, n0 + 1.3], [m, yR + 0.1, n0 - 1.5], [b + 0.3, yE - 0.1, n0 - 1.5], [b + 0.3, yE - 0.1, n0 + 1.3]], roofG);
+        onWall('N', n0 + 1.0, m - 0.8, m + 0.8, F + 3.6, F + 5.2, 'sash', W1); onWall('N', n0 + 1.0, m - 1.0, m + 1.0, F + 0.4, F + 2.4, 'sash', W1); }
+      for (const u of [79.0, 83.0]) { onWall('N', n0, u - 0.8, u + 0.8, F + 3.6, F + 5.2, 'sash', W1); } onWall('N', n0, 78.0, 84.0, F + 0.3, F + 2.4, 'aluWide'); onWall('N', n0, 76.6, 77.6, F, F + 2.4, 'door');
+      for (let e = 68.2; e < 87.8; e += 2.4) { const e2 = Math.min(87.8, e + 2.4), n = FS(e) + 0.15, y = ghS(e, n);
+        box(P, e - 0.06, e + 0.06, n - 0.06, n + 0.06, y - 0.2, y + 1.55, COL.white); onWall('N', n, e, e2, y - 0.1, y + 1.5, 'tube', W1, 0.0); onWall('S', n, e, e2, y - 0.1, y + 1.5, 'tube', W1, 0.0); }
+      hedgeRun(75.0, 87.8, 1.5, 0.9);
+      drive(71.0, 5.5, FS(71.0)); stripS(B.pave, [[71.0, FS(71)], [71.0, n0 - 0.1]], 5.5, COL.conc);
+      roundTree(84.5, -28.5, ghS(84.5, -28.5), 6.5, 6, C('#b09a50')); letterbox(74.0);
+      bin(74.6, kerbS(74.6) - 0.9, '#c8322a'); bin(75.4, kerbS(75.4) - 0.9, '#e5c021');
+      SOUTH.s6 = [67.9, 88.0];
+    }
+    // ---- S7 (e 88.0..108.2, the Venn St corner): white rendered wall with a timber slat gate (p7), two-storey cream-render house with
+    // a terracotta hip, a big deciduous tree in the front garden; the wall turns the corner into Venn St (faFu 200).
+    { const n0 = -33.5, F = ghS(97, n0) + 0.2;
+      box(R, 90.5, 105.0, -50.0, n0, F - 1.6, F + 6.0, C('#f0e6d2')); hip(90.5, 105.0, -50.0, n0, F + 6.0, 0.45, 0.55, roofT);
+      for (const u of [92.5, 96.0, 102.5]) { onWall('N', n0, u - 0.8, u + 0.8, F + 0.7, F + 2.3, 'sash', W1); onWall('N', n0, u - 0.8, u + 0.8, F + 3.6, F + 5.1, 'sash', W1); }
+      onWall('N', n0, 98.6, 99.8, F, F + 2.4, 'door');
+      wallRun(88.2, 92.0, 1.7); gate(92.3, 96.3, 1.9, 'timber'); wallRun(96.6, 105.0, 1.7);
+      // corner splay and the Venn St side (wall stays inside the property line)
+      { const pts = [[105.0, FS(105) + 0.15], [108.0, -27.0], [108.0, -45.0]]; for (let i = 0; i < pts.length - 1; i++) { const [a, b] = [pts[i], pts[i + 1]], y0 = ghS(...a) - 0.4, y1 = ghS(...b) - 0.4;
+        quadPts(R, [[a[0], y0, a[1]], [b[0], y1, b[1]], [b[0], y1 + 2.1, b[1]], [a[0], y0 + 2.1, a[1]]], W1); quadPts(R, [[b[0], y1, b[1]], [a[0], y0, a[1]], [a[0], y0 + 2.1, a[1]], [b[0], y1 + 2.1, b[1]]], W1); } }
+      hedgeRun(88.2, 104.5, 1.4, 0.8);
+      roundTree(100.0, -29.5, ghS(100, -29.5), 9, 9, C('#8d9a48')); peppermint(104.0, -36.0, ghS(104, -36), 9, 8, 0.3, 2.4);
+      // concrete footpath on the Venn St west verge, curving round the corner along the south property line (G2d 270)
+      stripS(B.pave, [[111.8, -46.0], [111.8, -31.0], [110.2, -26.6], [106.0, -24.9], [96.0, -24.9]], 1.5, COL.conc, 0.05);
+      letterbox(88.6);
+      SOUTH.s7 = [88.0, 108.2];
+    }
+    // ---- verge trees: the willow peppermints that line the south verge (every pano shows them), positions from the obliques
+    for (const [e, sp, h, dir] of [[-24.5, 10, 9.5, -1.0], [-3.5, 11, 10, -1.6], [4.5, 9, 9, -0.9], [21.5, 12, 11, -1.4], [44.0, 10, 9.5, -1.8], [71.5, 9, 9, -1.2], [101.5, 10, 10, -1.5]]) {
+      const n = (kerbS(e) + FS(e)) / 2 - 0.4; peppermint(e, n, ghS(e, n), h, sp, 0.28, dir);
+    }
+  }
+  // ---- south ground: lawn heightfield from the kerb (and the SW corner kerb return) to the rear lot lines
+  {
+    const st = 1.6, E0s = -32.6, E1s = 115.0, back = e => e < -12.5 ? -64.0 : e < 7.6 ? -62.0 : e < 27.7 ? -66.0 : e < 47.8 ? -63.0 : e < 88.0 ? -63.0 : -60.0;
+    for (let e = E0s; e < E1s - 0.01; e += st) {
+      const ea = e, eb = Math.min(E1s, e + st), em = (ea + eb) / 2, sa = northS(ea), sb = northS(eb), n0 = back(em);
+      for (let n = Math.min(sa, sb); n > n0 + 0.01; n -= st) {
+        const nb = Math.max(n0, n - st); const qa = Math.min(n, sa), qb = Math.min(n, sb), ra = Math.min(nb, qa), rb = Math.min(nb, qb);
+        if (qa - ra < 0.01 && qb - rb < 0.01) continue;
+        quadPts(B.lawn, [[eb, ghS(eb, qb), qb], [ea, ghS(ea, qa), qa], [ea, ghS(ea, ra), ra], [eb, ghS(eb, rb), rb]], COL.lawnW);
+      }
+      quadPts(B.lawn, [[eb, sAt(eb) - 0.6, sb], [ea, sAt(ea) - 0.6, sa], [ea, ghS(ea, sa), sa], [eb, ghS(eb, sb), sb]], COL.lawnW);   // kerb skirt
+    }
+    // Venn St west verge south of the corner (to the lot line e 108.2), so the footpath has ground under it
+    for (let n = -26; n > -46; n -= st) { const e0 = 108.2, e1 = 115.0; quadPts(B.lawn, [[e1, ghS(e1, n - st), n - st], [e1, ghS(e1, n), n], [e0, ghS(e0, n), n], [e0, ghS(e0, n - st), n - st]].map(p => p), COL.lawnW); }
+  }
   const parts = [];
   // ---------------------------------------------------------------- ground: lawn heightfield over all six north lots (Nos 9..1 + the Venn
   // corner), from just short of the kerb (southN) to each lot's rear boundary (cadastre)
@@ -19725,12 +19911,48 @@ LMX.house7c = function (H) {
       quadPts(B.lawn, [[ea, sAt(ea) - 0.6, sa], [eb, sAt(eb) - 0.6, sb], [eb, gh(eb, sb), sb], [ea, gh(ea, sa), sa]], COL.lawnW);
     }
   }
-  // ---------------------------------------------------------------- the dead end of Columba Pl: Cottesloe Primary's pale-green Colorbond
-  // boundary fence across the end and a small garden lamp post (now in the same mesh, on the street height)
+  // ---------------------------------------------------------------- THE DEAD END of Columba Pl (6 Nov 2026 rebuild, Kostas: "use Google Street View
+  // to model the end of the street"). Street View May 2024 (pano at lon 115.76216, headings 225-315): the asphalt stops square with a
+  // kerb about 4.5 m short of Cottesloe Primary's boundary (e -28.1, where the game's road extension ends); behind the kerb a lawn verge,
+  // a mulched garden bed with a tall pale-trunked gum, two WA peppermints, a young fan palm and shrubs, then the school's pale
+  // Surfmist-grey Colorbond fence right across the end and down the side boundaries of No. 9 and the last south lot. Red school roofs
+  // show over the fence (they stay Google's). A small garden lamp on No. 9's corner.
   {
-    const xF = -32.75, n0 = -27.4, n1 = -15.4, y0 = sAt(-32.6) - 0.3;
-    for (let n = n0; n < n1 - 0.01; n += 2.4) { const m = Math.min(n1, n + 2.4); quadPts(B.atlas, [[xF, y0, n], [xF, y0, m], [xF, y0 + 2.1, m], [xF, y0 + 2.1, n]], W1, ATU('cbond')); box(B.plain, xF - 0.05, xF + 0.05, n - 0.05, n + 0.05, y0, y0 + 2.15, C('#8e9a86')); }
-    const yl = gh(-31.8, -16.4); cyl(B.plain, -31.8, -16.4, 0.04, 0.04, yl - 0.2, yl + 1.1, 6, C('#2f3a2f')); box(B.plain, -31.95, -31.65, -16.55, -16.25, yl + 1.1, yl + 1.35, C('#e8efe0')); box(B.plain, -32.0, -31.6, -16.6, -16.2, yl + 1.35, yl + 1.42, C('#2f3a2f'));
+    const xF = -32.6, eK = -28.1, nS = kerbS(-30), nN = kerbN(-30), y0 = sAt(-30);
+    // end kerb: mountable concrete kerb across the asphalt end, with rounded returns into both side kerbs
+    for (let n = nS; n < nN - 0.01; n += 0.8) { const m = Math.min(nN, n + 0.8); box(B.plain, eK - 0.35, eK, n, m, y0 - 0.25, y0 + 0.12, COL.kerb); }
+    for (let k = 0; k < 6; k++) { const a0 = k / 6 * Math.PI / 2, a1 = (k + 1) / 6 * Math.PI / 2, r = 1.2;
+      for (const [cn, sg] of [[nS + r, -1], [nN - r, 1]]) { const p0 = [eK - 0.18 + r - r * Math.cos(a0), cn + sg * r * Math.sin(a0)], p1 = [eK - 0.18 + r - r * Math.cos(a1), cn + sg * r * Math.sin(a1)];
+        box(B.plain, Math.min(p0[0], p1[0]) - 0.15, Math.max(p0[0], p1[0]) + 0.15, Math.min(p0[1], p1[1]) - 0.15, Math.max(p0[1], p1[1]) + 0.15, y0 - 0.25, y0 + 0.12, COL.kerb); } }
+    // the last 28 m of street past the finish (e -28.1..-0.5): asphalt between the kerbs plus both side kerbs. This replaces
+    // streetext.js 'columba-w', whose ribbon sat under Google's melted street here (the reserve is now sunk by 'columba-end').
+    for (let e = eK; e < 0.5; e += 2) { const e2 = Math.min(0.5, e + 2);
+      quadPts(B.render, [[e, y0 + 0.005, kerbS(e) + 0.3], [e2, y0 + 0.005, kerbS(e2) + 0.3], [e2, y0 + 0.005, kerbN(e2) - 0.3], [e, y0 + 0.005, kerbN(e) - 0.3]], COL.asph);
+      for (const [k, sg] of [[kerbS, 1], [kerbN, -1]]) { const n0 = k(e), n1 = k(e2);
+        box(B.plain, e, e2, Math.min(n0, n0 + sg * 0.3), Math.max(n0, n0 + sg * 0.3), y0 - 0.05, y0 + 0.02, C('#b9b6ae'));   // concrete gutter
+        box(B.plain, e, e2, Math.min(n0, n0 - sg * 0.25), Math.max(n0, n0 - sg * 0.25), y0 - 0.2, y0 + 0.13, COL.kerb); } }
+    // verge lawn + mulched bed between the kerb and the fence (the corner lots' ground covers the rest)
+    for (let n = nS - 0.4; n < nN + 0.39; n += 1.6) { const m = Math.min(nN + 0.4, n + 1.6);
+      quadPts(B.lawn, [[xF, y0 + 0.08, n], [eK - 0.3, y0 + 0.1, n], [eK - 0.3, y0 + 0.1, m], [xF, y0 + 0.08, m]], COL.lawnW);
+      quadPts(B.lawn, [[xF, y0 + 0.11, n], [xF + 1.9, y0 + 0.12, n], [xF + 1.9, y0 + 0.12, m], [xF, y0 + 0.11, m]], COL.mulch); }
+    // Surfmist Colorbond fence: across the end and back along both side boundaries (corrugated: sheet + rib strips + rails)
+    const FC = C('#d9d6cc'), RIB = C('#c4c0b5'), RAIL = C('#bdb9ae');
+    const fence = (pa, pb, ya, yb, h = 1.8) => { const L = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]), k = Math.max(1, Math.round(L / 2.4));
+      for (let j = 0; j < k; j++) { const p = [pa[0] + (pb[0] - pa[0]) * j / k, pa[1] + (pb[1] - pa[1]) * j / k], q = [pa[0] + (pb[0] - pa[0]) * (j + 1) / k, pa[1] + (pb[1] - pa[1]) * (j + 1) / k], u = ya + (yb - ya) * j / k, v = ya + (yb - ya) * (j + 1) / k;
+        quadPts(B.plain, [[p[0], u - 0.2, p[1]], [q[0], v - 0.2, q[1]], [q[0], v + h, q[1]], [p[0], u + h, p[1]]], FC); quadPts(B.plain, [[q[0], v - 0.2, q[1]], [p[0], u - 0.2, p[1]], [p[0], u + h, p[1]], [q[0], v + h, q[1]]], FC);
+        for (let r = 0; r < 10; r++) { const t = (r + 0.5) / 10, x = p[0] + (q[0] - p[0]) * t, z = p[1] + (q[1] - p[1]) * t, yy = u + (v - u) * t; box(B.plain, x - 0.03, x + 0.03, z - 0.03, z + 0.03, yy - 0.2, yy + h, RIB); }
+        box(B.plain, Math.min(p[0], q[0]) - 0.03, Math.max(p[0], q[0]) + 0.03, Math.min(p[1], q[1]) - 0.03, Math.max(p[1], q[1]) + 0.03, Math.min(u, v) + h - 0.04, Math.max(u, v) + h + 0.04, RAIL);
+        box(B.plain, p[0] - 0.05, p[0] + 0.05, p[1] - 0.05, p[1] + 0.05, u - 0.2, u + h + 0.05, RAIL); } };
+    fence([xF, -64.0], [xF, nS - 0.4], ghS(xF + 0.5, -64) , y0);
+    fence([xF, nS - 0.4], [xF, nN + 0.4], y0, y0);
+    fence([xF, nN + 0.4], [xF, 21.3], y0, gh(xF + 0.5, 21.0));
+    // garden: tall gum left of centre (pale trunk), peppermints both sides, young fan palm, shrubs and strappy plants in the bed
+    gum(-31.4, -20.0, y0 + 0.1, 17, 13);
+    peppermint(-30.6, -24.6, y0 + 0.1, 8, 8, 0.25, -0.4); peppermint(-31.0, -16.0, y0 + 0.1, 7.5, 7, 0.3, 0.6);
+    datePalm(-31.2, -22.2, y0 + 0.1, 0.9, 1.4);
+    for (const [e, n, r] of [[-31.3, -26.6, 1.1], [-30.8, -18.2, 0.9], [-31.6, -21.0, 0.7], [-29.9, -23.0, 0.5], [-30.2, -17.0, 0.8]]) blob(e, y0 + 0.1 + r * 0.6, n, r, r * 0.8, r, COL.shrub, 1);
+    // garden lamp on No. 9's corner (kept from the first model)
+    const yl = gh(-31.8, -16.4); cyl(B.plain, -29.4, -15.9, 0.04, 0.04, yl - 0.2, yl + 1.1, 6, C('#2f3a2f')); box(B.plain, -29.55, -29.25, -16.05, -15.75, yl + 1.1, yl + 1.35, C('#e8efe0')); box(B.plain, -29.6, -29.2, -16.1, -15.7, yl + 1.35, yl + 1.42, C('#2f3a2f'));
   }
   // ---------------------------------------------------------------- assemble. The mesh is one part with no footprint, lifted in update()
   // to the game's own road height at the finish (all heights above are relative to it). Google's copy is deleted by empty sink parts.
@@ -19746,6 +19968,14 @@ LMX.house7c = function (H) {
   const lotB = [...fp(50, E1).filter(p => p[1] < 4.8), [E1, 4.8], [77.9, 4.8], [77.9, 20.8], [50, 20.8]];
   parts.push({ name: 'columba-north-w', ll: llFlat(lotA), sink: true, obj: new THREE.Group() });
   parts.push({ name: 'columba-north-e', ll: llFlat(lotB), sink: true, obj: new THREE.Group() });
+  // south side sink (Nos 2..12 + the SW corner of the Venn St junction): kerb (and the corner kerb return) to the rear lot lines
+  { const P = []; for (let e = -32.6; e < 115.0; e += 2) P.push([e, northS(e) - 0.1]); P.push([115.0, northS(115.0) - 0.1]);
+    P.push([115.0, -46.0], [108.2, -46.0], [108.2, -60.0], [88.0, -60.0], [88.0, -63.0], [27.7, -63.0], [27.7, -66.0], [7.6, -66.0], [7.6, -62.0], [-12.5, -62.0], [-12.5, -64.0], [-32.6, -64.0]);
+    parts.push({ name: 'columba-south', ll: llFlat(P), sink: true, obj: new THREE.Group() }); }
+  // the last 28 m of street past the finish (our own asphalt): Google's melted street under it is deleted. NOT over the game's road:
+  // a sink there skips the game's own road-zone clean-up and left Google's road texture fighting the asphalt (tested 6 Nov).
+  { const P = []; for (let e = -32.6; e <= 0.5; e += 4) P.push([e, kerbS(e) - 0.3]); P.push([0.5, kerbS(0.5) - 0.3], [0.5, kerbN(0.5) + 0.3]); for (let e = -0.5; e >= -32.6; e -= 4) P.push([e, kerbN(e) + 0.3]); P.push([-32.6, kerbN(-32.6) + 0.3]);
+  parts.push({ name: 'columba-end', ll: llFlat(P), sink: true, obj: new THREE.Group() }); }
   const FIN = toLocal(-32.002484, 115.762395), S0 = sAt(-0.5);
   let done = false;
   const update = () => {
@@ -37666,8 +37896,24 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
       g.userData.who = { Yiayia: yia, 'The Gruffalo': unc, Mum: mum };
       return g;
     }
+    // 6 Nov (Kostas): the family was one house short, at No. 5. The finish fires 12 m before the end of the route, which ends at
+    // No. 7's front; the car froze there and the party was built beside it. Now the car pulls up outside No. 7 first (the cut to the
+    // outro hides the 13 m move) and the party stands on No. 7's front lawn. Lot from the Landgate cadastre: lon 115.7622673-115.7624979.
+    const YIAYIA = { lat: -32.002484, lon: 115.762403 };   // kerbside point on Columba Pl, so the party (2 m on, 7.5 m right) is mid-lawn of No. 7
+    function parkAtYiayias() {
+      const g = window.__game, T = g && g.road, L = window.__toLocal, C = getCar(); if (!T || !L || !C) return;
+      const q = L(YIAYIA.lat, YIAYIA.lon); let bi = -1, bd = 1e9;
+      for (let i = Math.max(0, T.length - 80); i < T.length; i++) { const r = T[i], d = Math.hypot(r.p.x - q.x, r.p.y - q.z); if (d < bd) { bd = d; bi = i; } }
+      if (bi < 0 || bd > 40) return;
+      const i0 = Math.min(bi, T.length - 2), a = T[i0], b = T[i0 + 1], sx = b.p.x - a.p.x, sz = b.p.y - a.p.y, L2 = sx * sx + sz * sz || 1;
+      const u = Math.max(0, Math.min(1, ((q.x - a.p.x) * sx + (q.z - a.p.y) * sz) / L2)), cx = a.p.x + sx * u, cz = a.p.y + sz * u;
+      const ci = Math.min(C.idx ?? i0, T.length - 1), rc = T[ci], lat = rc && rc.r ? (C.x - rc.p.x) * rc.r.x + (C.z - rc.p.y) * rc.r.y : 0;
+      C.x = cx + a.r.x * lat; C.z = cz + a.r.y * lat; C.y = a.h + (b.h - a.h) * u; C.yaw = Math.atan2(-a.t.x, -a.t.y);
+      C.vx = C.vz = 0; C.steer = 0; C.yawRate = 0; C.idx = i0;
+    }
     function placeParty() {
       if (!props) { props = buildParty(); scene.add(props); }
+      if (dir === 'fwd' && !o.noPark) try { parkAtYiayias(); } catch (e) { console.warn('park', e); }
       const F = frame(), side = o.partySide ?? (dir === 'fwd' ? 1 : -1);   // the spit is on the lawn beside the car
       const base = at(F, 2, side * 7.5, 0.05); props.position.copy(base);
       props.rotation.y = Math.atan2(F.f.x, F.f.z) + (side > 0 ? 0 : Math.PI);   // local +z faces along the road
@@ -37719,7 +37965,7 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
             () => { const s = sp(), c = frame(); return { p: s.clone().addScaledVector(c.f, -3.4).add(new THREE.Vector3(0, 1.1, 0)).addScaledVector(c.r, -1.2), l: s.clone().addScaledVector(c.r, 0.6).add(new THREE.Vector3(0, 0.3, 0)) }; }),
           shot(6.5, 9.2, () => { const y = partyPoint('Yiayia', 1.4), c = frame(), d = toCar(y); const V = [-1.6, 3.2, 0.1]; return { p: y.clone().addScaledVector(c.f, V[0]).addScaledVector(d, V[1]).add(new THREE.Vector3(0, V[2], 0)), l: y.clone().add(new THREE.Vector3(0, -0.2, 0)) }; },
             () => { const y = partyPoint('Yiayia', 1.4), c = frame(), d = toCar(y); return { p: y.clone().addScaledVector(c.f, -1.0).addScaledVector(d, 2.4).add(new THREE.Vector3(0, 0.1, 0)), l: y.clone().add(new THREE.Vector3(0, -0.15, 0)) }; }),
-          shot(9.2, 12, () => ({ p: at(F(), -6, -3, 2.2), l: at(F(), 2, 4, 0.8) }), () => ({ p: at(F(), -11, -6, 10), l: at(F(), 2, 5, 0) })),
+          shot(9.2, 12, () => ({ p: at(F(), -6, -1.5, 2.2), l: at(F(), 2, 4, 0.8) }), () => ({ p: at(F(), -14, -0.5, 7.5), l: at(F(), 2, 5, 0.5) })),   // 6 Nov: pulls back up the street (the old path rose into the south side's trees)
         ] : [
           shot(0, 3.5, () => ({ p: at(F(), 5.5, -2.2, 0.55), l: at(F(), 0, 0, 0.7) }), () => ({ p: at(F(), 4.6, -3.2, 0.8), l: at(F(), -0.5, 0, 0.8) })),
           shot(3.5, 7, () => ({ p: at(F(), -6, -3, 2.2), l: at(F(), 2, 0, 0.8) }), () => ({ p: at(F(), -11, -6, 10), l: at(F(), 2, 0, 0) })),
@@ -37740,13 +37986,31 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
     function reset() { clock(null); chatClear(); title(null); sayClear(); fade(0); }
 
     // ---------------- runtime ----------------
+    // 6 Nov (Kostas: "a house blocking the Yiayia shot"): keep a clear line of sight. Every frame, look from the target back to the
+    // camera; if a house, wall, fence or tree canopy of ours is in the way, bring the camera in front of it (smoothed, so it glides
+    // rather than jumps). Google's map mesh is skipped (too heavy to test and it is sunk around the street anyway).
+    const occRay = new THREE.Raycaster(); let occPull = 0;
+    function occluders() { const g = window.__game, tg = g && g.tiles && g.tiles.group, out = [];
+      for (const ch of scene.children) { if (!ch.visible || ch === props || ch === tg || ch.isLight || ch.isCamera) continue; out.push(ch); } return out; }
+    function clearView() {
+      try {
+        const dir = new THREE.Vector3().subVectors(cam.p, cam.l), L = dir.length(); if (L < 1.5) return; dir.divideScalar(L);
+        occRay.set(cam.l, dir); occRay.far = L; if (mainCam) occRay.camera = mainCam;
+        const hits = []; for (const o of occluders()) { try { occRay.intersectObject(o, true, hits); } catch (e) {} }
+        let want = 0; for (const h of hits.sort((x, y) => x.distance - y.distance)) { if (h.object.isSprite || h.object.isPoints || h.object.isLine || h.distance < 1.2) continue;
+          let o = h.object, car = false; while (o) { if (/perthCar|skin-/.test(o.name || '')) { car = true; break; } o = o.parent; } if (car) continue;
+          want = Math.min(L - 1.0, L - h.distance + 0.6); break; }
+        occPull += (want - occPull) * (want > occPull ? 0.5 : 0.08); if (occPull > 0.05) cam.p.addScaledVector(dir, -Math.min(occPull, L - 1.0));
+      } catch (e) {}
+    }
     function step(dt) {
       t += dt; const S = active;
       while (cues.length && cues[0][0] <= t) cues.shift()[1]();
       let sh = S.shots.find(s => t >= s.t0 && t < s.t1) || S.shots[S.shots.length - 1];
-      if (sh !== S._cur) { S._cur = sh; sh._a = sh.from(); sh._b = sh.to; }
+      if (sh !== S._cur) { S._cur = sh; sh._a = sh.from(); sh._b = sh.to; occPull = 0; }
       const k = ease(Math.min(1, Math.max(0, (t - sh.t0) / (sh.t1 - sh.t0)))), b = sh.to();
       cam.p.lerpVectors(sh._a.p, b.p, k); cam.l.lerpVectors(sh._a.l, b.l, k);
+      clearView();
       // props animate
       if (props && props.visible) {
         spit.rotation.x += dt * 1.6; coalLight.intensity = 5 + Math.sin(t * 13) * 0.8 + Math.sin(t * 7.3) * 0.6;
