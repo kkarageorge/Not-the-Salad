@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9578810</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9582123</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -1217,6 +1217,14 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
 
   // ---------------- game state read-outs ----------------
   const G = () => window.__game;
+  // perf3 (8 Nov): what the machine is, so a slow or odd run can be explained from the zip alone
+  let HZ = 0; (() => { let n = 0, a = 0; const f = t => { if (!a) a = t; if (++n < 61) requestAnimationFrame(f); else HZ = Math.round(60000 / (t - a)); }; requestAnimationFrame(f); })();
+  function diag() { const o = { dpr: window.devicePixelRatio, display: screen.width + 'x' + screen.height, hz: HZ, battery: null, gpu: '' };
+    try { const gl = G().renderer.getContext(), e = gl.getExtension('WEBGL_debug_renderer_info'); o.gpu = e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { }
+    const fill = () => { if (HZ) o.hz = HZ; else setTimeout(fill, 1000); }; fill();
+    try { navigator.getBattery && navigator.getBattery().then(b => { o.battery = { charging: b.charging, level: Math.round(b.level * 100) }; }); } catch (e) { }
+    return o; }
+  function perfNow() { try { const g = G(), t = g.tiles, s = t ? t.stats : {}, q = window.__autoQ; return [+txt('fps') || 0, q ? (q.capped ? 'cap' + q.capped : q.step) : '', t ? (t.visibleTiles ? t.visibleTiles.size : '') : 'none', window.__ftQ ? window.__ftQ.length : '', s.downloading || 0, s.failed || 0]; } catch (e) { return ['', '', '', '', '', '']; } }
   function snapshot() {
     const g = G(), o = { loc: txt('loccode'), kmToGo: txt('left'), kmh: +txt('kmh') || 0, road: txt('road'), view: txt('view-name'), fps: +txt('fps') || 0 };
     try {
@@ -1277,7 +1285,7 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
     // any older session that was exported is cleared now; an unexported one would have been offered on load
     const old = await DB.get('current'); if (old && old !== '') { const m = await DB.get(old + '/meta'); if (m && m.exported) await DB.delPrefix(old + '/'); }
     const d = new Date(), id = `fb-${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
-    S = { id, version: VERSION, started: d.toISOString(), startedLocal: d.toString(), page: location.href.split('?')[0].split('#')[0], ua: navigator.userAgent, screen: innerWidth + 'x' + innerHeight, notes: [], timeline: [], tele: [], heard: [], audio: null, speech: null, exported: false };
+    S = { id, version: VERSION, started: d.toISOString(), startedLocal: d.toString(), page: location.href.split('?')[0].split('#')[0], ua: navigator.userAgent, screen: innerWidth + 'x' + innerHeight, diag: diag(), notes: [], timeline: [], tele: [], heard: [], audio: null, speech: null, exported: false };
     await DB.put('current', id);
     rec = true; talk = null; t0 = performance.now(); shotN = 0; audioN = 0; ring = []; seen = {}; live = {}; doneK = {};
     mountUI(); badgeText();
@@ -1302,7 +1310,7 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
     startSpeech();
     timers.push(setInterval(async () => { const b = await grab(640, 0.6); if (b) { ring.push({ t: now(), b }); if (ring.length > 8) ring.shift(); } }, 1000));
     timers.push(setInterval(async () => { const last = ring[ring.length - 1]; if (!last || !rec) return; const name = await putShot(last.b, 'timeline'); if (name) { S.timeline.push({ t: +last.t.toFixed(1), shot: name, ...pick(snapshot()) }); saveMeta(); } }, 10000));
-    timers.push(setInterval(() => { const s = snapshot(); S.tele.push([+now().toFixed(1), s.state || '', s.loc, s.kmToGo, s.kmh, s.car ? s.car.x : '', s.car ? s.car.z : '', s.car ? s.car.yaw : '', s.road]); if (S.tele.length % 20 === 0) saveMeta(); }, 500));
+    timers.push(setInterval(() => { const s = snapshot(); S.tele.push([+now().toFixed(1), s.state || '', s.loc, s.kmToGo, s.kmh, s.car ? s.car.x : '', s.car ? s.car.z : '', s.car ? s.car.yaw : '', s.road, ...perfNow()]); if (S.tele.length % 20 === 0) saveMeta(); }, 500));
     timers.push(setInterval(badgeText, 250));
     timers.push(setInterval(meter, 100));
     saveMeta(true);
@@ -1408,7 +1416,7 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
     const json = Object.assign({}, m, { notes, audioFile: audioName, readme: 'Times (t) are seconds from the start of audio. loc = on-screen LOC code: dir, km along forward route, metres right of centre line, camera look deg vs car, pitch, camera mode.' });
     delete json.tele;
     files.push({ name: 'feedback.json', data: JSON.stringify(json, null, 1) });
-    files.push({ name: 'positions.csv', data: 't_s,state,loc,km_to_go,kmh,x,z,yaw,road\n' + m.tele.map(r => r.map(v => /[",]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(',')).join('\n') });
+    files.push({ name: 'positions.csv', data: 't_s,state,loc,km_to_go,kmh,x,z,yaw,road,fps,auto_step,tiles_visible,tiles_cleanup_queue,tiles_downloading,tiles_failed\n' + m.tele.map(r => r.map(v => /[",]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(',')).join('\n') });
     files.push({ name: 'notes.md', data: notesMd(m, notes, audioName) });
     files.push({ name: 'report.html', data: reportHtml(m, notes, audioName) });
     const zip = await makeZip(files);
@@ -1420,7 +1428,7 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
     return zip;
   }
   function notesMd(m, notes, audioName) {
-    const L = [`# Not the Salad! feedback ${m.startedLocal}`, '', `Length ${mmss(m.duration || 0)} · ${notes.length} notes · speech: ${m.speech} · audio: ${audioName || (m.audio && m.audio.error) || 'none'} · screen ${m.screen}`, `Page ${m.page}`, ''];
+    const L = [`# Not the Salad! feedback ${m.startedLocal}`, '', `Length ${mmss(m.duration || 0)} · ${notes.length} notes · speech: ${m.speech} · audio: ${audioName || (m.audio && m.audio.error) || 'none'} · screen ${m.screen}` + (m.diag ? ` · display ${m.diag.display} @${m.diag.hz} Hz · dpr ${m.diag.dpr} · GPU ${m.diag.gpu}` + (m.diag.battery ? ` · battery ${m.diag.battery.level}%${m.diag.battery.charging ? ' charging' : ' NOT charging'}` : '') : ''), `Page ${m.page}`, ''];
     for (const n of notes) {
       L.push(`## ${n.n}. [${mmss(n.t)}] ${n.kind === 'marker' ? '(marker) ' : ''}${n.text}`);
       L.push(`- ${n.loc || 'no LOC'} · ${n.kmToGo || '?'} km to go · ${n.kmh} km/h · ${n.road || ''} · ${n.state || ''} · view ${n.view || ''}`);
@@ -1497,7 +1505,7 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
   window.PerthFeedback = { version: VERSION, start, stop, toggle, talkKey, save, marker, get talking() { return !!talk; }, exportSession, get recording() { return rec; }, get session() { return S; }, _makeZip: makeZip };
 })();
 </script>
-<script>window.__LDnet&&__LDnet(2734532)</script><script>/* Perth Run phone layer (5 Nov 2026, thread "Make the game playable on phones").
+<script>window.__LDnet&&__LDnet(2736115)</script><script>/* Perth Run phone layer (5 Nov 2026, thread "Make the game playable on phones").
    Plain script, inlined BEFORE the game's module script. Adds:
    1. touch controls (drag-steer pad, gas, brake, drift, boost, pause, camera, reset) merged into PerthHandling.createInput
    2. lighter graphics defaults on phones, "turn sideways" prompt, fullscreen + landscape lock on Android
@@ -1723,7 +1731,7 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
   "ez-tree": "https://cdn.jsdelivr.net/npm/@dgreenheck/ez-tree@1.1.0/build/ez-tree.es.js"
 } }
 </script>
-<script>window.__LDnet&&__LDnet(2735039)</script><script>/* PerthAudio: all the sound for the Perth racing game.
+<script>window.__LDnet&&__LDnet(2736622)</script><script>/* PerthAudio: all the sound for the Perth racing game.
  *
  * Plain Web Audio, no libraries, works from a local file:// page (no module imports, no fetches).
  * Everything is synthesised in code except the engine recordings, which are passed in
@@ -2442,8 +2450,8 @@ registerProcessor('perth-v8', PerthV8);
   root.PerthAudio = { create, ZONES, LAYERS, zoneAt: (lat, lon) => zoneMix(z => metres(lat, lon, z.lat, z.lon)), version: '1.0' };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDnet&&__LDnet(2790446)</script><script>window.__LDSTAGES=[["Turning on the sun",84],["Turning on the sun",586],["Getting things ready",5],["Laying the roads",5],["Laying the roads",39],["Putting up the houses",30],["Planting the trees and lawns",7],["Laying the roads",45],["Getting things ready",81],["Laying the roads",747],["Kerbs, medians and the river wall",337],["Tidying up Google’s map",30],["Kerbs, medians and the river wall",5],["Getting things ready",30],["Building the landmarks",3450],["Planting the trees and lawns",614],["Planting the trees and lawns",126],["Tidying up Google’s map",5],["Putting up the houses",5],["Planting the trees and lawns",19],["Putting up the houses",134],["Planting the trees and lawns",84],["Laying the roads",665],["Laying the roads",5],["Laying the roads",5],["Laying the roads",37],["Laying the roads",109],["Planting the trees and lawns",664],["Planting the trees and lawns",5],["Planting the trees and lawns",51],["Tidying up Google’s map",13],["Tidying up Google’s map",89],["Laying the roads",8],["Building the landmarks",5],["Getting things ready",42],["Putting up the houses",5],["Putting up the houses",5],["Putting up the houses",10],["Putting up the houses",5],["Putting up the houses",5],["Putting up the houses",6],["Putting up the houses",5],["Planting the trees and lawns",218],["Planting the trees and lawns",318],["Signs, bins and street lights",6],["Planting the trees and lawns",5],["Building the landmarks",140],["Building the landmarks",95],["Building the landmarks",5],["Planting the trees and lawns",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Laying the train lines",5],["Bringing out the traffic",5],["Planting the trees and lawns",5],["Bringing out the traffic",5],["Washing your car",30],["Bringing out the traffic",30],["Getting things ready",5],["Wiring the street lights",5],["Turning on the sun",5],["Turning on the sun",5],["Turning on the sun",5],["Turning on the sun",5],["Wiring the street lights",1016],["Washing your car",5],["Washing your car",36],["Laying the roads",5],["Washing your car",5],["Washing your car",5],["Getting things ready",5],["Getting things ready",5],["Getting things ready",5],["Turning on the sun",5],["Tuning the exhaust",5],["Setting the table",5],["Bringing out the traffic",260],["Setting the table",22],["Washing your car",5],["Laying the train lines",5],["Bringing out the traffic",5],["Setting the table",5],["Washing your car",5],["Planting the trees and lawns",30],["Setting the table",22],["Getting things ready",5],["Washing your car",5],["Packing it all up",417],["Getting things ready",48]];window.__LDstep=window.__LDstep||function(){};window.__LDsub=window.__LDsub||function(){};</script>
-<script>window.__LDnet&&__LDnet(2793208)</script><script type="module">
+<script>window.__LDnet&&__LDnet(2792029)</script><script>window.__LDSTAGES=[["Turning on the sun",84],["Turning on the sun",586],["Getting things ready",5],["Laying the roads",5],["Laying the roads",39],["Putting up the houses",30],["Planting the trees and lawns",7],["Laying the roads",45],["Getting things ready",81],["Laying the roads",747],["Kerbs, medians and the river wall",337],["Tidying up Google’s map",30],["Kerbs, medians and the river wall",5],["Getting things ready",30],["Building the landmarks",3450],["Planting the trees and lawns",614],["Planting the trees and lawns",126],["Tidying up Google’s map",5],["Putting up the houses",5],["Planting the trees and lawns",19],["Putting up the houses",134],["Planting the trees and lawns",84],["Laying the roads",665],["Laying the roads",5],["Laying the roads",5],["Laying the roads",37],["Laying the roads",109],["Planting the trees and lawns",664],["Planting the trees and lawns",5],["Planting the trees and lawns",51],["Tidying up Google’s map",13],["Tidying up Google’s map",89],["Laying the roads",8],["Building the landmarks",5],["Getting things ready",42],["Putting up the houses",5],["Putting up the houses",5],["Putting up the houses",10],["Putting up the houses",5],["Putting up the houses",5],["Putting up the houses",6],["Putting up the houses",5],["Planting the trees and lawns",218],["Planting the trees and lawns",318],["Signs, bins and street lights",6],["Planting the trees and lawns",5],["Building the landmarks",140],["Building the landmarks",95],["Building the landmarks",5],["Planting the trees and lawns",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Laying the train lines",5],["Bringing out the traffic",5],["Planting the trees and lawns",5],["Bringing out the traffic",5],["Washing your car",30],["Bringing out the traffic",30],["Getting things ready",5],["Wiring the street lights",5],["Turning on the sun",5],["Turning on the sun",5],["Turning on the sun",5],["Turning on the sun",5],["Wiring the street lights",1016],["Washing your car",5],["Washing your car",36],["Laying the roads",5],["Washing your car",5],["Washing your car",5],["Getting things ready",5],["Getting things ready",5],["Getting things ready",5],["Turning on the sun",5],["Tuning the exhaust",5],["Setting the table",5],["Bringing out the traffic",260],["Setting the table",22],["Washing your car",5],["Laying the train lines",5],["Bringing out the traffic",5],["Setting the table",5],["Washing your car",5],["Planting the trees and lawns",30],["Setting the table",22],["Getting things ready",5],["Washing your car",5],["Packing it all up",417],["Getting things ready",48]];window.__LDstep=window.__LDstep||function(){};window.__LDsub=window.__LDsub||function(){};</script>
+<script>window.__LDnet&&__LDnet(2794791)</script><script type="module">
 import * as THREE from 'three';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -40483,22 +40491,31 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
   const NP = window.PerthNewPlayer = { turns: [], stats: {} };
   const css = `
 body.np-turning #fairCorner{display:none!important}
-#np-turn{position:fixed;left:50%;top:18px;transform:translateX(-50%) translateY(-8px);z-index:3;display:flex;align-items:center;gap:14px;
+#np-turn{position:fixed;left:18px;top:112px;transform:translateY(-8px);z-index:3;display:flex;align-items:center;gap:14px;
   padding:10px 18px 10px 12px;border-radius:14px;background:rgba(14,20,24,.82);color:#fff;font:600 18px/1.15 Barlow,system-ui,sans-serif;
   box-shadow:0 6px 22px rgba(0,0,0,.35);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;min-width:230px}
-#np-turn.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#np-turn.on{opacity:1;transform:translateY(0)}
 #np-turn svg{width:54px;height:54px;flex:none}
 #np-turn .t1{font-size:24px;font-weight:700;letter-spacing:.2px}
 #np-turn .t2{font-size:15px;font-weight:500;color:#cfd8dc;margin-top:2px}
 #np-turn .bar{height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin-top:7px;overflow:hidden}
 #np-turn .bar i{display:block;height:100%;background:#ffb21e;width:0}
 #np-turn.now .bar i{background:#6fd08c}
-#np-stuck{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:3;padding:12px 20px;border-radius:12px;background:rgba(14,20,24,.85);
+#np-stuck{position:fixed;left:18px;bottom:170px;z-index:3;padding:12px 20px;border-radius:12px;background:rgba(14,20,24,.85);
   color:#fff;font:600 20px Barlow,system-ui,sans-serif;display:none;pointer-events:none;text-align:center}
 #np-stuck small{display:block;font-size:14px;font-weight:500;color:#cfd8dc;margin-top:3px}
 #np-map{position:fixed;z-index:2;pointer-events:none;opacity:0;transition:opacity .35s;border-radius:12px}
 #np-map.on{opacity:1}
-@media (max-width:700px){#np-turn{top:64px;padding:8px 14px 8px 10px;min-width:0}#np-turn svg{width:42px;height:42px}#np-turn .t1{font-size:19px}#np-turn .t2{font-size:13px}}`;
+/* 8 Nov 7:11 pm run (Kostas): keep the middle of the screen clear so you can see the road. Messages go to the sides:
+   left column under the road name (turn banner, corner sign, ghost note), right column under TIME LEFT (checkpoint toasts, jump). */
+#fairCorner{left:18px!important;top:112px!important;transform:none!important}
+#pxGhostHint{left:18px!important;top:200px!important;transform:none!important;text-align:left!important;font-size:16px!important;max-width:340px}
+#toast{left:auto!important;right:18px!important;top:165px!important;transform:none!important;text-align:right!important;font-size:34px!important}
+#toast small{font-size:15px!important;margin-top:4px!important}
+#jumpChip{left:auto!important;right:18px!important;top:250px!important;transform:scale(.85)!important;transform-origin:right top;text-align:right!important}
+#jumpChip.on{transform:scale(1)!important}
+@media (max-width:700px){#fairCorner{top:84px!important}#pxGhostHint{top:170px!important;max-width:60vw}#toast{top:120px!important;font-size:24px!important}#jumpChip{top:190px!important}}
+@media (max-width:700px){#np-turn{top:84px;padding:8px 14px 8px 10px;min-width:0}#np-turn svg{width:42px;height:42px}#np-turn .t1{font-size:19px}#np-turn .t2{font-size:13px}}`;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   const el = (tag, id, html) => { const e = document.createElement(tag); e.id = id; if (html) e.innerHTML = html; document.body.appendChild(e); return e; };
   const turnEl = el('div', 'np-turn', '<svg viewBox="0 0 64 64"></svg><div><div class="t1"></div><div class="t2"></div><div class="bar"><i></i></div></div>');
@@ -43349,7 +43366,7 @@ await __LDstep(87);
 // ================= automatic quality =================
 // If the laptop drops below a smooth rate, step detail down one notch at a time.
 const autoQ = (() => {
-  let acc = 0, n = 0, step = 0, cool = 0, good = 0;
+  let acc = 0, n = 0, step = 0, cool = 0, good = 0, f0 = 0, capped = 0;   // perf3: f0 = fps when it first stepped down, capped = screen limit found
   const names = ['effects', 'resolution', 'shadows', 'scenery', 'map detail', 'resolution'];
   let fx0 = 2, scn0 = 2, et0 = 20;
   function undo() { step = 0; fxLevel = fx0; renderer.setPixelRatio(BASE_PR); resize(); renderer.shadowMap.enabled = true; car.traverse(o => { if (o.material) o.material.needsUpdate = true; }); sceneryRange = scn0; sceneryAt = -99; treeAt = -99; if (tiles) tiles.errorTarget = et0; }
@@ -43362,15 +43379,18 @@ const autoQ = (() => {
     () => { renderer.setPixelRatio(Math.max(0.65, 0.65 * BASE_PR)); resize(); fxLevel = 0; return 'Resolution trimmed again'; },
   ];
   return {
-    reset() { acc = n = 0; cool = 4; good = 0; if (step) { undo(); } },
-    get step() { return step; }, remember() { fx0 = fxLevel; scn0 = sceneryRange; et0 = tiles ? tiles.errorTarget : 20; },
+    reset() { acc = n = 0; cool = 4; good = 0; f0 = 0; capped = 0; if (step) { undo(); } },
+    get step() { return step; }, get capped() { return capped; }, remember() { fx0 = fxLevel; scn0 = sceneryRange; et0 = tiles ? tiles.errorTarget : 20; },
     tick(dt) {
-      if ($('autoq').value !== '1') return;
+      if ($('autoq').value !== '1' || capped) return;
       if (tiles && tiles.stats.parsing + tiles.stats.downloading > 4) { acc = n = 0; return; }   // tiles still streaming: the dip is loading, not rendering
       if (cool > 0) { cool -= dt; return; }
       acc += dt; n++;
       if (acc >= 3) { const fps = n / acc; acc = n = 0;
-        if (fps < 42 && step < steps.length) { const msg = steps[step++](); cool = 3; good = 0; $('qnote').textContent = ' · auto: ' + names.slice(0, step).join(', '); toast(msg, 'Keeping it smooth', 1200); }
+        // perf3 (8 Nov): two steps down and the frame rate has not moved = the screen or power saving caps it (a 30 Hz TV, battery saver).
+        // Lowering quality cannot help then, so put it all back and leave it alone for this run.
+        if (step >= 2 && fps < f0 + 3) { capped = Math.round(f0); undo(); $('qnote').textContent = ' · screen limit ' + capped + ' fps'; toast('Your screen is capping the frame rate', 'Full quality kept', 2000); return; }
+        if (fps < 42 && step < steps.length) { if (!step) f0 = fps; const msg = steps[step++](); cool = 3; good = 0; $('qnote').textContent = ' · auto: ' + names.slice(0, step).join(', '); toast(msg, 'Keeping it smooth', 1200); }
         else if (fps > 56 && step > 0 && ++good >= 4) { undo(); $('qnote').textContent = ''; toast('Full quality back', '', 900); } }
     },
   };
@@ -43663,6 +43683,7 @@ function loop(now) {
   if (X) X.afterRender();
 }
 requestAnimationFrame(loop);
+window.__autoQ = autoQ;   // perf3: read by the feedback recorder
 window.__game = { get X() { return X; }, C, road, scene, get TRK() { return TRK; }, setDirection, get DIR() { return DIR; }, segInfo, placeAt, get state() { return state; }, keys, get tiles() { return tiles; }, get CHECKPOINTS() { return CHECKPOINTS; }, traffic, THREE, FRAME, flattenTile, renderer, physics, roadFrame, finishNow() { C.idx = TRK.length - 2; checkFinish(); } };
 
 ;if (window.__LDend) window.__LDend();
