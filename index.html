@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9461166</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9461348</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -36576,7 +36576,7 @@ await __LDstep(57);
         <span class="pc-hint">&larr; &rarr; car &nbsp; Enter / A go &nbsp; Esc / B back</span></div>`;
     document.body.appendChild(root_);
     const $q = s => root_.querySelector(s);
-    const canvas = $q('canvas');
+    let canvas = $q('canvas'); /* menufix */
     const PLATES = { nova: 'NOVA 92', lancer: 'LOUD 09', ix3: 'CLAIM IT' };
     function render() {
       const c = cur();
@@ -36600,7 +36600,7 @@ await __LDstep(57);
       else if (t.classList.contains('pc-go')) confirm(); else if (t.classList.contains('pc-back')) cancel();
     });
     // swipe the stage to change car
-    { let sx = null; canvas.addEventListener('pointerdown', e => { sx = e.clientX; }); addEventListener('pointerup', e => { if (sx == null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 50) step(d < 0 ? 1 : -1); }); }
+    { let sx = null; $q('.pc-stage').addEventListener('pointerdown', e => { sx = e.clientX; }); /* menufix */ addEventListener('pointerup', e => { if (sx == null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 50) step(d < 0 ? 1 : -1); }); }
     function blip(f) { try { const a = env.audio && env.audio.ctx; if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.frequency.value = f; g.gain.setValueAtTime(0.05, a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.12); o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + 0.13); } catch (e) { } }
 
     // ---------------- 3D turntable preview ----------------
@@ -36643,7 +36643,7 @@ await __LDstep(57);
         raf = requestAnimationFrame(loop);
       }
       function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
-      function release() { stop(); if (car) { car.dispose(); car = null; carId = null; } if (R) { try { R.dispose(); R.forceContextLoss(); } catch (e) { } R = null; } }
+      function release() { stop(); if (car) { car.dispose(); car = null; carId = null; } if (R) { try { R.dispose(); R.forceContextLoss(); } catch (e) { } R = null; const fresh = document.createElement('canvas'); canvas.replaceWith(fresh); canvas = fresh; /* menufix: a force-lost canvas can never draw again */ } }
       return { show, stop, release };
     })();
 
