@@ -1519,7 +1519,7 @@ window.PerthTrees = { init, add, plan, update, setRange, remove, SPECIES, ALIAS,
   // ---------- 3. tile cap ----------
   // 8 Nov 2026 capfix: Kostas hit the old 25-starts cap while testing and got a game with no city and no visible note.
   // Kostas's own devices (opened once with ?owner=..., see leaderboard) get a much higher cap; everyone else 40 a day.
-  const OWNER = (() => { try { return !!localStorage.getItem('nts-owner'); } catch (e) { return false; } })();
+  const OWNER = (() => { try { return /[?&]owner=/.test(location.search) || !!localStorage.getItem('nts-owner'); } catch (e) { return false; } })();   // the ?owner link counts on its first load too
   const CAP = OWNER ? { roots: 400, tiles: 2000000 } : { roots: 40, tiles: 250000 };   // per device per UTC day (resets 8 am Perth); one game load = 1 root request
   const day = () => new Date().toISOString().slice(0, 10);
   let use = { d: day(), roots: 0, tiles: 0 };
