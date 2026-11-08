@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9591076</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9591197</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -31915,10 +31915,11 @@ table.px-t tr.nts-own td{color:#9fd3ff}
     if (P.state === 'skip') return `<h2>World board</h2><p>Not posted. <a href="#" data-nts="unskip" style="color:var(--sun,#ffb21e)">Post it after all</a></p>`;
     if (P.state === 'fail') return `<h2>World board</h2><p class="nts-err">${esc(P.err)}</p>${P.retry ? '<div class="nts-form"><button class="px-btn alt" data-nts="retry">Try again</button></div>' : ''}`;
     const r = P.res, b = S.board, mine = S.run.ms;
-    const head = r.is_pb ? `${ord(r.rank)} of ${r.total} in the world` : `Your world best is ${fmt(r.best_ms)} (${ord(r.rank)} of ${r.total})`;
+    const head = r.is_pb ? `Saved: ${ord(r.rank)} of ${r.total} in the world` : `Saved. Your best ${fmt(r.best_ms)} still counts (${ord(r.rank)} of ${r.total})`;
     const list = b ? shortList(b, 5) : [];
     return `<h2>World board</h2><div class="nts-big">${head}</div>${b ? vsOwnerLine(b, mine) : ''}
       ${list.length ? `<table class="px-t nts-t"><tbody>${rowsHtml(list)}</tbody></table>` : ''}
+      ${r.is_pb ? '' : '<p style="font-size:12px">The board shows each driver\'s best time only.</p>'}
       <p style="font-size:12px">Posted as <b style="color:var(--text,#fff)">${esc(ls.get(LS.name) || '')}</b> · <a href="#" data-nts="rename" style="color:var(--sun,#ffb21e)">change name</a> · <a href="#" data-nts="world" style="color:var(--sun,#ffb21e)">full world board</a></p>`;
   }
   function paintResults() {
