@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9590717</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9591076</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -36194,7 +36194,10 @@ await __LDstep(59);
     if (SKINS[id]) return SKINS[id].p;
     const e = SKINS[id] = { data: null, p: null };
     if (root.PERTH_CAR_SKINS === false || typeof fetch !== 'function') { e.p = Promise.resolve(null); return e.p; }
-    e.p = fetch(skinBase() + id + '.bin').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    // 8 Nov (Kostas got the coded stand-in car): always revalidate with the server (a cached 404 or half-updated file from an
+    // earlier deploy can't stick), and try a second time after a short wait before falling back to the coded car.
+    const get = () => fetch(skinBase() + id + '.bin', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); });
+    e.p = get().catch(() => new Promise(res => setTimeout(res, 1500)).then(get))
       .then(buf => (e.data = decodeSkin(THREE, buf)))
       .catch(err => { console.warn('[perth-car] no ready-made skin for ' + id + ', keeping the coded car:', err && err.message); return null; });
     return e.p;
