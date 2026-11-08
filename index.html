@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9574884</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9575213</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -37549,6 +37549,7 @@ body #pcsel .pc-tabs{gap:6px}body #pcsel .pc-tabs .pc-tab{min-width:0;padding:7p
       const S = env.straights && env.straights();
       if (S && S.T) { if (S.T.__baseTow == null) { S.T.__baseTow = S.T.towFill; S.T.__baseSpend = S.T.spendAccel; }
         S.T.towFill = S.T.__baseTow * (st.id === 'nova' ? 0.5 : 1); S.T.spendAccel = S.T.__baseSpend * (st.id === 'ix3' ? 1.28 : 1); }
+      root.__easyClock = st.id === 'f1';   // ZOE-F1b: the checkpoint clock never runs out in easy mode (perth-straights.js)
       root.__kerbProof = st.id === 'ix3';   // iX3 perk: kerbs and medians don't upset it (perth-kerbs.js ride())
       runStart();
     }
@@ -37622,12 +37623,13 @@ body #pcsel .pc-tabs{gap:6px}body #pcsel .pc-tabs .pc-tab{min-width:0;padding:7p
     }
     // ---- Zoe's easy mode (F1): like a kart game's smart steering + auto-accelerate. The car keeps to the road, slows for bends and
     // goes again by itself; the stick / arrows move it across the road (left lane when let go), the brake still works.
-    const EZ = { T: null, vmax: null, off: null, slowT: 0 }, EZ_TOP = 95 / 3.6, EZK = root.__EZK || (root.__EZK = { look0: 5, lookV: 0.35, gain: 3.2, margin: 1.6, narrow: 0.5, wide: 0.7, aLat: 0.35 });
+    const EZ = { T: null, vmax: null, off: null, slowT: 0 }, EZK = root.__EZK || (root.__EZK = { top: 120, look0: 5, lookV: 0.35, gain: 3.2, margin: 1.6, narrow: 0.5, wide: 0.7, aLat: 0.38 });   // ZOE-F1b faster
     function assist(inp, dt) {
       if (st.id !== 'f1' || !inp) return;
       const T = root.__trk && root.__trk(), C = env.getC(); if (!T || !C || !T[C.idx]) return;
       const N = T.length, aLat = EZK.aLat * 9.81, aBrk = 0.45 * 9.81;
-      if (EZ.T !== T || EZ.a !== EZK.aLat) {   // safe speed for every point of the road, from how sharp it bends
+      const EZ_TOP = EZK.top / 3.6;
+      if (EZ.T !== T || EZ.a !== EZK.aLat || EZ.top !== EZK.top) { EZ.top = EZK.top;   // safe speed for every point of the road, from how sharp it bends
         EZ.T = T; EZ.a = EZK.aLat; EZ.off = null; EZ.vmax = new Float32Array(N);
         const hd = i => { const a = T[Math.max(0, i - 3)].p, b = T[Math.min(N - 1, i + 3)].p; return Math.atan2(b.x - a.x, b.y - a.y); };
         for (let i = 0; i < N; i++) { const i0 = Math.max(0, i - 6), i1 = Math.min(N - 1, i + 6); let dh = hd(i1) - hd(i0); while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
@@ -38572,6 +38574,7 @@ body.pbCrash #speedo,body.pbCrash #roadsign,body.pbCrash #map,body.pbCrash #fpsb
     function rushStep(dt, myD) {
       if (!rush.on || rush.over) return;
       rush.left -= dt;
+      if (window.__easyClock && rush.left < 20) rush.left = 20;   // ZOE-F1b: Zoe's easy mode never runs out of time
       while (rush.next < built.gates.length && myD >= built.gates[rush.next].d) {
         const g = built.gates[rush.next]; rush.next++;
         const nx = built.gates[rush.next];
