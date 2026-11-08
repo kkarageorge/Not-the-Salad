@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9461348</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9498708</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -8038,7 +8038,7 @@ LMX.fwbay = function (H) {
     // --- grounds: brick-paved forecourt along Keane St, lawns, a low limestone wall + hedge along Venn St, side path ---
     const LX0 = -33.0, LX1 = -10.3, LZ0 = 10.4, LZ1 = 48.0;
     const lot = [[LX0, LZ0], [LX1, LZ0], [LX1, LZ1], [LX0, LZ1]];
-    const LAWN = rgb('#6f9142'), PAVER = rgb('#a5644d'), CONC = rgb('#cfc9bc');
+    const LAWN = rgb('#7fa84a'), PAVER = rgb('#a5644d'), CONC = rgb('#cfc9bc');
     G.poly([[LX0, LZ0], [LX1, LZ0], [LX1, FZ - 1.0], [LX0, FZ - 1.0]], [], 0.03, PAVER);                                         // forecourt pavers to the footpath
     G.poly([[NX0 - 1.2, FZ - 1.0], [TX1 + 1.0, FZ - 1.0], [TX1 + 1.0, FZ], [NX0 - 1.2, FZ]], [], 0.03, PAVER);
     G.poly([[LX0, FZ - 1.0], [NX0 - 1.2, FZ - 1.0], [NX0 - 1.2, LZ1], [LX0, LZ1]], [], 0.02, LAWN);                                  // west lawn
@@ -26079,6 +26079,7 @@ LMX.turnext = function (H) {
   const lineQ = (q0, q1, o, hw2, y, s) => quad(L, Pt(q0, o - hw2, y), Pt(q0, o + hw2, y), Pt(q1, o - hw2, y), Pt(q1, o + hw2, y), [0, 1], [1, 1], [0, 0], [1, 0], q0.s, q1.s);
   const Pt = (q, o, y) => [q.x + q.rx * o, y, q.z + q.rz * o];
   for (const S of LEGS) {
+    if (S.k === 'venn-s' && LMX.pgfinal) continue;   // pgfinal draws Venn St south itself
     // resample the centreline every 4 m
     const raw = S.ll.map(([la, lo]) => { const v = H.toLocal(la, lo); return [v.x, v.z]; });
     const pts = [raw[0]]; for (let i = 1; i < raw.length; i++) { const [ax, az] = raw[i - 1], [bx, bz] = raw[i], l = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(l / 4)); for (let q = 1; q <= n; q++) pts.push([ax + (bx - ax) * q / n, az + (bz - az) * q / n]); }
@@ -26547,6 +26548,157 @@ LMX.coode = function (H) {
   return { parts, replaces: ['1064569645', '1064569644', '1064569646', '922030624', '922030625', '922030611', '922030612', '922030613', '922030614', '922030615', '922030616'], update };
 };
 
+// MLC oval, Stirling Hwy, Claremont (Methodist Ladies' College playing field, forward route d ~13.42-13.60 km, left side driving west).
+// Thread "Improve MLC oval", 8 Nov 2026 (Kostas: "MLC oval needs some work"). Module LMX.mlcoval (extras/landmarks/kit/CONTRACT.md).
+// Before: plain flat lawn behind green lattice "chain-link" panels (phase4 places.js) and a grey pipe rail (stirside lot 13420-13620),
+// a few bare trees, Google's torn tents on the field; the footbridge stood ~45 m too far west, in the middle of the frontage.
+// Now (from Google Street View Static, Apr 2026 / May 2024, looking only, and Esri World Imagery z19):
+//  - the field: one big mown lawn with light/dark stripes, from the back of the footpath to the terrace path at the south end,
+//    and from the netball courts (claremont.js mlc-courts) to the Corry Lynn Rd verge; cricket pitch in the middle;
+//  - a low black chain-link fence on black posts along the footpath, with a gate by the bus stop;
+//  - the blue long-jump runway with its sand pit just inside the fence;
+//  - weeping WA peppermints along the fence, the big Moreton Bay fig by the bridge ramp, gums and peppermints on the Corry Lynn verge
+//    (shared tree models, lmx-trees.js);
+//  - the bus stop "Stirling Highway After Dean Street" (OSM 9106627443): shelter with a terracotta roof, glass sides and an ad panel;
+//  - a curved limestone planter with shrubs at the east end, the terrace path and low limestone wall along the south end.
+// Heights: modelled flat (y = 0 = ground); the shared grounding in lmx-post.js lays the lawn, fence and runway on the footpath level
+// beside each point (the highway climbs ~4% westward here). Must run BEFORE stirside in build.py so stirside skips its lot here.
+window.LMX = window.LMX || {};
+LMX.mlcoval = function (H) {
+  const { THREE, toLocal, canvasTex, noise } = H;
+  if (typeof road === 'undefined' || !road.length) return { parts: [], replaces: [] };
+  // ---------------------------------------------------------------- frames
+  const C0 = [-31.9856, 115.7748], MLAT = 110922, MLON = 94418;
+  const ll = (x, y) => [C0[0] + y / MLAT, C0[1] + x / MLON];            // aerial metres (x east, y north from C0) -> lat/lon
+  const L = (x, y) => { const v = toLocal(...ll(x, y)); return [v.x, v.z]; };   // -> world x, z
+  const O = toLocal(-31.98, 115.79), EV = toLocal(-31.98, 115.791), NV = toLocal(-31.979, 115.79);
+  const ex = EV.x - O.x, ez = EV.z - O.z, nx = NV.x - O.x, nz = NV.z - O.z, det = ex * nz - ez * nx;
+  const toLL = (x, z) => { const dx = x - O.x, dz = z - O.z, a = (dx * nz - dz * nx) / det, b = (ex * dz - ez * dx) / det; return [-31.98 + b * 0.001, 115.79 + a * 0.001]; };
+  const toXY = (x, z) => { const [la, lo] = toLL(x, z); return [(lo - C0[1]) * MLON, (la - C0[0]) * MLAT]; };
+  // road skeleton (the game's own samples), left side = s -1, u metres behind the back of the footpath (as stirside.js)
+  const D0 = 13380, D1 = 13660, sk = [];
+  for (let j = 0; j < road.length; j++) if (road[j].d >= D0 && road[j].d <= D1 && !road[j].mw) sk.push(j);
+  if (sk.length < 8) return { parts: [], replaces: [] };
+  const R = road, jAt = d => { let lo = 0, hi = sk.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (R[sk[m]].d < d) lo = m + 1; else hi = m; } return lo; };
+  const B0 = j => R[j].w / 2 + 0.35 + 0.3 + 2.2 + 0.05;
+  const at = (d, u) => { const k = Math.max(0, Math.min(sk.length - 2, jAt(d) - 1)); const a = R[sk[k]], b = R[sk[k + 1]], t = Math.max(0, Math.min(1, (d - a.d) / ((b.d - a.d) || 1)));
+    const px = a.p.x + (b.p.x - a.p.x) * t, pz = a.p.y + (b.p.y - a.p.y) * t; let rx = a.r.x + (b.r.x - a.r.x) * t, rz = a.r.y + (b.r.y - a.r.y) * t; const l = Math.hypot(rx, rz) || 1; rx /= l; rz /= l;
+    const o = B0(sk[k]) * (1 - t) + B0(sk[k + 1]) * t + u; return [px - rx * o, pz - rz * o]; };
+  const tang = d => { const a = at(d - 2, 0), b = at(d + 2, 0), l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };   // forward (west-ish)
+  const dOf = (x, z) => { let bd = 1e18, best = D0; for (let d = D0; d <= D1; d += 1) { const p = at(d, 0), e = (p[0] - x) ** 2 + (p[1] - z) ** 2; if (e < bd) { bd = e; best = d; } } return best; };
+  // ---------------------------------------------------------------- the lot
+  const DA = 13420;                                   // east end: just west of the footbridge (stirside's lot started here)
+  let DB = DA; while (DB < D1 && toXY(...at(DB, 0))[0] > -96) DB += 2;   // west end: the Corry Lynn Rd mouth
+  const north = []; for (let d = DA; d < DB; d += 3) north.push(at(d, -0.05)); north.push(at(DB, -0.05));
+  const far = [[-93, -50], [-80, -80], [-62, -77], [28, -74], [28, 5.5], [58, 5.5]].map(p => L(...p));   // Corry Lynn verge, south terrace, courts edge
+  const lotW = [...north, ...far];
+  const lotLL = lotW.map(p => toLL(...p)).flat().map(v => +v.toFixed(7));
+  const inside = (pl, x, z) => { let c = false; for (let i = 0, k = pl.length - 1; i < pl.length; k = i++) { const a = pl[i], b = pl[k]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+  const nearestOn = (pl, x, z) => { let bd = 1e18, bp = null; for (let i = 0; i < pl.length; i++) { const a = pl[i], b = pl[(i + 1) % pl.length], vx = b[0] - a[0], vz = b[1] - a[1], L2 = vx * vx + vz * vz || 1; let t = ((x - a[0]) * vx + (z - a[1]) * vz) / L2; t = Math.max(0, Math.min(1, t));
+      const px = a[0] + vx * t, pz = a[1] + vz * t, e = (px - x) ** 2 + (pz - z) ** 2; if (e < bd) { bd = e; bp = [px, pz]; } } return bp; };
+  // ---------------------------------------------------------------- geometry buffers (one mesh per material)
+  const GB = () => ({ P: [], N: [], U: [], C: [], I: [] });
+  const quadIn = (g, a, b, c, d, col, uv) => { const n0 = g.P.length / 3; for (const p of [a, b, c, d]) { g.P.push(p[0], p[1], p[2]); g.C.push(col.r, col.g, col.b); }
+    const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [d[0] - a[0], d[1] - a[1], d[2] - a[2]]; let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const l = Math.hypot(...n) || 1; n = n.map(v => v / l);
+    for (let k = 0; k < 4; k++) g.N.push(...n); for (const q of (uv || [[0, 0], [1, 0], [1, 1], [0, 1]])) g.U.push(q[0], q[1]); g.I.push(n0, n0 + 1, n0 + 2, n0, n0 + 2, n0 + 3); };
+  // box centred at (x, z) on the ground, size w (along dir) x dep x h, rotated so local +x = dir
+  const box = (g, x, z, y0, w, dep, h, dir, col) => { const [fx, fz] = dir, rx = -fz, rz = fx, hw = w / 2, hd = dep / 2;
+    const P = (a, b, y) => [x + fx * a + rx * b, y, z + fz * a + rz * b];
+    const c = [P(-hw, -hd, y0), P(hw, -hd, y0), P(hw, hd, y0), P(-hw, hd, y0)], t = c.map(p => [p[0], y0 + h, p[2]]);
+    quadIn(g, t[0], t[3], t[2], t[1], col); quadIn(g, c[1], c[0], t[0], t[1], col); quadIn(g, c[2], c[1], t[1], t[2], col); quadIn(g, c[3], c[2], t[2], t[3], col); quadIn(g, c[0], c[3], t[3], t[0], col); };
+  const mk = (g, m) => { if (!g.I.length) return null; const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(g.P, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(g.N, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(g.U, 2)); geo.setAttribute('color', new THREE.Float32BufferAttribute(g.C, 3)); geo.setIndex(g.I); const me = new THREE.Mesh(geo, m); me.receiveShadow = true; return me; };
+  const col = c => new THREE.Color(c), W = col('#ffffff');
+  // ---------------------------------------------------------------- materials (canvas textures only)
+  const fwd = tang((DA + DB) / 2), ang = Math.atan2(fwd[1], fwd[0]);
+  const lawnTex = canvasTex(256, (g, s) => { g.fillStyle = '#4c7f30'; g.fillRect(0, 0, s, s); g.fillStyle = '#578f37'; g.fillRect(0, 0, s, s / 2);   // two mown stripes per tile
+    noise(g, s, 'rgba(0,0,0,0)', 0.22, 9000, 1.6); for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(${40 + Math.random() * 60 | 0},${90 + Math.random() * 60 | 0},${30 + Math.random() * 30 | 0},.35)`; g.fillRect(Math.random() * s, Math.random() * s, 2, 1); } });
+  const lawnM = new THREE.MeshStandardMaterial({ map: lawnTex, roughness: 1, vertexColors: true });
+  const flatM = new THREE.MeshStandardMaterial({ roughness: 0.95, vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });   // runway, sand, pitch, path, lines
+  const solidM = new THREE.MeshStandardMaterial({ roughness: 0.8, vertexColors: true });     // posts, walls, shelter frame, planter
+  const chainTex = canvasTex(64, (g, s) => { g.clearRect(0, 0, s, s); g.strokeStyle = '#141516'; g.lineWidth = 2; for (let x = -s; x < 2 * s; x += 8) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + s, s); g.stroke(); g.beginPath(); g.moveTo(x + s, 0); g.lineTo(x, s); g.stroke(); } });
+  const chainM = new THREE.MeshStandardMaterial({ map: chainTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.2, vertexColors: true });
+  const glassM = new THREE.MeshStandardMaterial({ color: 0xa9c4cf, transparent: true, opacity: 0.35, roughness: 0.1, metalness: 0.3, side: THREE.DoubleSide, depthWrite: false });
+  const adTex = canvasTex(128, (g, s) => { const gr = g.createLinearGradient(0, 0, 0, s); gr.addColorStop(0, '#1d3a5f'); gr.addColorStop(1, '#3d7bb0'); g.fillStyle = gr; g.fillRect(0, 0, s, s);
+    g.fillStyle = '#f2f2f2'; g.font = 'bold 22px Arial'; g.textAlign = 'center'; g.fillText('SUNDAY', s / 2, 40); g.fillText('ROAST', s / 2, 66); g.fillStyle = '#f6c544'; g.fillRect(24, 84, s - 48, 4); g.font = '14px Arial'; g.fillStyle = '#ffffff'; g.fillText('don\'t be late', s / 2, 108); }, false);
+  const adM = new THREE.MeshStandardMaterial({ map: adTex, emissive: 0xffffff, emissiveMap: adTex, emissiveIntensity: 0.35, roughness: 0.4, side: THREE.DoubleSide });
+  const hedgeTex = canvasTex(128, (g, s) => { noise(g, s, '#466b30', 0.45, 5000, 3); for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(${120 + Math.random() * 60 | 0},${150 + Math.random() * 50 | 0},${60 + Math.random() * 30 | 0},.5)`; g.fillRect(Math.random() * s, Math.random() * s, 3, 2); } });
+  const hedgeM = new THREE.MeshStandardMaterial({ map: hedgeTex, roughness: 1, vertexColors: true });
+  // ---------------------------------------------------------------- 1. lawn: 4 m grid over the lot, edge vertices pulled onto the lot outline
+  const root = new THREE.Group(); root.name = 'mlcoval';
+  const gL = GB(), gF = GB(), gS = GB(), gC = GB(), gH = GB();
+  {
+    const xs = lotW.map(p => p[0]), zs = lotW.map(p => p[1]), STEP = 4, x0 = Math.min(...xs) - STEP, z0 = Math.min(...zs) - STEP, nX = Math.ceil((Math.max(...xs) - x0) / STEP) + 2, nZ = Math.ceil((Math.max(...zs) - z0) / STEP) + 2;
+    const vi = new Map(), V = (i, k) => { const key = i * 10000 + k; if (vi.has(key)) return vi.get(key); let x = x0 + i * STEP, z = z0 + k * STEP; if (!inside(lotW, x, z)) [x, z] = nearestOn(lotW, x, z);
+      const n = gL.P.length / 3; gL.P.push(x, 0, z); gL.N.push(0, 1, 0); const u = (x * Math.cos(ang) + z * Math.sin(ang)), v = (-x * Math.sin(ang) + z * Math.cos(ang)); gL.U.push(u / 30, v / 16); gL.C.push(1, 1, 1); vi.set(key, n); return n; };
+    for (let i = 0; i < nX; i++) for (let k = 0; k < nZ; k++) { const cs = [[i, k], [i + 1, k], [i + 1, k + 1], [i, k + 1]]; if (!cs.some(([a, b]) => inside(lotW, x0 + a * STEP, z0 + b * STEP))) continue;
+      const q = cs.map(([a, b]) => V(a, b)); gL.I.push(q[0], q[2], q[1], q[0], q[3], q[2]); }
+    // outline ring so the edge is clean even where no grid corner falls inside
+    // (the grid's pulled vertices already sit on the outline; tiny slivers are harmless under the skirt)
+  }
+  // ---------------------------------------------------------------- 2. flat markings: long-jump runway + sand pit, cricket pitch, terrace path
+  const strip = (g, d0, d1, u0, u1, c, y = 0.03) => { for (let d = d0; d < d1 - 0.01; d += 4) { const e = Math.min(d1, d + 4); const a = at(d, u0), b = at(e, u0), cc = at(e, u1), dd = at(d, u1);
+      quadIn(g, [a[0], y, a[1]], [b[0], y, b[1]], [cc[0], y, cc[1]], [dd[0], y, dd[1]], c); } };
+  const dPit = dOf(...L(1, 2.5));
+  strip(gF, dPit + 0.5, dPit + 40, 3.0, 4.4, col('#2f5fa8'));                // blue synthetic runway, 40 m west of the pit
+  for (const u of [3.08, 4.32]) strip(gF, dPit + 0.5, dPit + 40, u, u + 0.06, W, 0.035);
+  strip(gF, dPit + 0.5, dPit + 1.0, 3.0, 4.4, W, 0.036);                     // take-off board
+  strip(gF, dPit - 8.5, dPit + 0.5, 2.0, 5.4, col('#d8c38f'), 0.04);          // sand pit
+  strip(gS, dPit - 8.6, dPit + 0.6, 1.85, 2.0, col('#9c9486')); strip(gS, dPit - 8.6, dPit + 0.6, 5.4, 5.55, col('#9c9486'));
+  { const c = L(-6, -42), f = [Math.cos(ang), Math.sin(ang)], r = [-f[1], f[0]], P = (a, b) => [c[0] + f[0] * a + r[0] * b, 0.03, c[1] + f[1] * a + r[1] * b];
+    quadIn(gF, P(-10.06, -1.5), P(-10.06, 1.5), P(10.06, 1.5), P(10.06, -1.5), col('#c9b98a'));   // cricket pitch, along the field's long axis
+    for (const a of [-8.84, 8.84]) quadIn(gF, P(a - 0.04, -1.6), P(a - 0.04, 1.6), P(a + 0.04, 1.6), P(a + 0.04, -1.6), W);
+    for (const b of [-0.12, 0.12]) for (const a of [-10.06, 10.06]) box(gS, ...P(a, b).filter((_, i) => i !== 1), 0, 0.04, 0.04, 0.71, f, col('#e9e2cf')); }
+  // terrace path + low limestone wall + seats along the south end
+  { const A = L(-60, -73.5), B = L(27, -71.8), dv = [B[0] - A[0], B[1] - A[1]], Ln = Math.hypot(...dv), f = [dv[0] / Ln, dv[1] / Ln], r = [-f[1], f[0]];
+    const P = (a, b, y) => [A[0] + f[0] * a + r[0] * b, y, A[1] + f[1] * a + r[1] * b];
+    for (let a = 0; a < Ln; a += 5) { const e = Math.min(Ln, a + 5); quadIn(gF, P(a, -1.6, 0.03), P(a, 1.6, 0.03), P(e, 1.6, 0.03), P(e, -1.6, 0.03), col('#d6cdb8')); }
+    for (let a = 0; a < Ln; a += 6) { const m = Math.min(6, Ln - a), c = P(a + m / 2, -2.0, 0); box(gS, c[0], c[2], -0.4, m, 0.45, 1.0, f, col('#cbbd98')); }
+    for (const a of [18, 34, 50, 66]) { const c = P(a, 1.2, 0); box(gS, c[0], c[2], 0.42, 1.8, 0.45, 0.06, f, col('#7a5a3e')); box(gS, c[0], c[2], 0, 0.2, 0.35, 0.42, f, col('#3a3a3a')); } }
+  // ---------------------------------------------------------------- 3. fence: black chain-link 1.2 m on black posts, along the footpath
+  { const dGate = dOf(...L(-45, -9));    // gate opposite the bus stop
+    const runs = [[DA + 2, dGate - 2.5], [dGate + 2.5, DB - 1]], FU = 0.35, FH = 1.2, post = col('#151617');
+    for (const [d0, d1] of runs) { let d = d0; while (d < d1 - 0.2) { const e = Math.min(d1, d + 2.5), a = at(d, FU), b = at(e, FU), Ln = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        quadIn(gC, [a[0], 0.04, a[1]], [b[0], 0.04, b[1]], [b[0], FH, b[1]], [a[0], FH, a[1]], W, [[0, 0], [Ln / 0.5, 0], [Ln / 0.5, FH / 0.5], [0, FH / 0.5]]);
+        const t = tang(d); box(gS, a[0], a[1], 0, 0.05, 0.05, FH + 0.05, t, post);
+        box(gS, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, FH, Ln, 0.04, 0.04, t, post);   // top rail
+        d = e; }
+      const b = at(d1, FU); box(gS, b[0], b[1], 0, 0.06, 0.06, FH + 0.05, tang(d1), post); }
+    for (const s of [-1, 1]) { const p = at(dGate + s * 2.5, FU); box(gS, p[0], p[1], 0, 0.08, 0.08, FH + 0.15, tang(dGate), post); }   // gate posts
+  }
+  // ---------------------------------------------------------------- 4. bus stop (OSM 9106627443 "Stirling Highway After Dean Street")
+  { const bs = toLocal(-31.9856683, 115.7743164), dB = dOf(bs.x, bs.z), f = tang(dB), r = [f[1], -f[0]];   // r points away from the road (left side)
+    const c = at(dB, -1.05), P = (a, b) => [c[0] + f[0] * a + r[0] * b, c[1] + f[1] * a + r[1] * b];
+    const frame = col('#2b2d30'), roofC = col('#b4553a');
+    for (const a of [-2.0, 2.0]) for (const b of [-0.6, 0.6]) { const p = P(a, b); box(gS, p[0], p[1], 0, 0.08, 0.08, 2.45, f, frame); }
+    { const p = P(0, 0.05); box(gS, p[0], p[1], 2.45, 4.6, 1.9, 0.12, f, roofC); box(gS, p[0], p[1], 2.57, 4.2, 1.5, 0.18, f, roofC); }   // terracotta roof, slight crown
+    { const p = P(0, 0.62); box(gS, p[0], p[1], 0.45, 3.6, 0.42, 0.06, f, col('#8e8f91')); box(gS, p[0], p[1], 0, 3.2, 0.1, 0.45, f, frame); }   // seat
+    const gG = GB(); { const a = P(-2, 0.66), b = P(2, 0.66); quadIn(gG, [a[0], 0.15, a[1]], [b[0], 0.15, b[1]], [b[0], 2.3, b[1]], [a[0], 2.3, a[1]], W);
+      for (const s of [-2, 2]) { const p0 = P(s, -0.6), p1 = P(s, 0.66); quadIn(gG, [p0[0], 0.15, p0[1]], [p1[0], 0.15, p1[1]], [p1[0], 2.3, p1[1]], [p0[0], 2.3, p0[1]], W); } }
+    const gm = mk(gG, glassM); if (gm) { gm.renderOrder = 2; root.add(gm); }
+    { const gA = GB(), p = P(2.75, 0.2); box(gS, p[0], p[1], 0, 1.4, 0.3, 2.2, f, frame);   // ad panel (both faces)
+      for (const s of [-1, 1]) { const q = [p[0] + r[0] * 0.16 * s, p[1] + r[1] * 0.16 * s], a = [q[0] - f[0] * 0.6, q[1] - f[1] * 0.6], b = [q[0] + f[0] * 0.6, q[1] + f[1] * 0.6];
+        const A = s < 0 ? b : a, B = s < 0 ? a : b; quadIn(gA, [A[0], 0.25, A[1]], [B[0], 0.25, B[1]], [B[0], 2.05, B[1]], [A[0], 2.05, A[1]], W); }
+      const am = mk(gA, adM); if (am) root.add(am); }
+    { const p = P(-2.9, -0.5); box(gS, p[0], p[1], 0, 0.07, 0.07, 2.7, f, col('#9a9c9e')); box(gS, p[0], p[1], 2.2, 0.06, 0.5, 0.6, f, col('#1f7a3a')); }   // bus stop flag
+  }
+  // ---------------------------------------------------------------- 5. curved limestone planter with shrubs (east end, by the bridge)
+  { const c = L(44, 12); for (let k = 0; k < 14; k++) { const a0 = Math.PI * (0.15 + k * 0.05), a1 = a0 + Math.PI * 0.05, R1 = 7;
+      const p0 = [c[0] + Math.cos(a0) * R1, c[1] + Math.sin(a0) * R1], p1 = [c[0] + Math.cos(a1) * R1, c[1] + Math.sin(a1) * R1], m = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2], Ln = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), f = [(p1[0] - p0[0]) / Ln, (p1[1] - p0[1]) / Ln];
+      box(gS, m[0], m[1], 0, Ln + 0.05, 0.35, 0.55, f, col('#d2c49f')); const mi = [c[0] + Math.cos((a0 + a1) / 2) * (R1 - 1.0), c[1] + Math.sin((a0 + a1) / 2) * (R1 - 1.0)];
+      box(gH, mi[0], mi[1], 0, Ln + 0.3, 1.5, 0.55 + 0.35 * Math.abs(Math.sin(k * 1.7)), f, W); } }
+  // ---------------------------------------------------------------- 6. trees (shared models): peppermints along the fence, the fig, Corry Lynn verge
+  const TREES = [['fig', 6, 13, 15], ['peppermint', -13, 1, 9], ['peppermint', -21, -3, 8], ['peppermint', -29, -6, 8], ['peppermint', -37, -9.5, 8.5],
+    ['broadleaf', -50, -14, 11], ['peppermint', -58, -17, 8], ['peppermint', -67, -22, 9], ['peppermint', -84, -34, 9], ['gum', -88, -47, 15], ['peppermint', -81, -60, 8],
+    ['broadleaf', -73, -73, 10], ['peppermint', 48, 14, 8], ['broadleaf', 56, 10, 8], ['peppermint', 22, 9, 8]];
+  const rnd = (() => { let s = 4711; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+  for (const [sp, x, y, h] of TREES) { const [wx, wz] = L(x, y); if (!inside(lotW, wx, wz)) continue; const o = new THREE.Object3D(); o.position.set(wx, 0, wz); o.userData.lmxTree = sp; o.userData.ph = h; o.userData.rot = rnd() * 6.28; root.add(o);
+    if (!window.PerthTrees) { const g = GB(); box(g, wx, wz, 0, 0.5, 0.5, h * 0.45, [1, 0], col('#5a4a3a')); box(g, wx, wz, h * 0.4, h * 0.5, h * 0.5, h * 0.5, [1, 0], col('#3f6b2e')); const m = mk(g, solidM); if (m) root.add(m); } }
+  // ---------------------------------------------------------------- assemble
+  for (const [g, m] of [[gL, lawnM], [gF, flatM], [gS, solidM], [gC, chainM], [gH, hedgeM]]) { const me = mk(g, m); if (me) root.add(me); }
+  return { parts: [{ name: 'mlc-oval', ll: lotLL, sink: true, obj: root }], replaces: ['mlcoval-fence'] };
+};
+
 // Stirling Highway roadside, Nedlands to Claremont (forward route d 10.18-13.62 km, "6.3 to 2.9 km to go"), module LMX.stirside.
 // Run feedback item 12 (Kostas, 5 Nov 23:35): "It's a lot of work" / "Buildings on the left need a lot of work". Behind the brick
 // footpaths the game had an empty lawn to 46 m, then Google's torn and smeared houses (tents and floating shards on the lawn), and a
@@ -27012,25 +27164,39 @@ LMX.pgfinal = function (H) {
     ['R', 2400, 2380, 'wW:1.8', 'garden', { k: 'house2', set: 10, dep: 14, w: 0.7, c: '#e9e7e2', rf: 'c' }, 'broadleaf:1', { fo: 3.5, dep: 40, hb: 2.2 }],
     ['R', 2380, 2353, 'wW:2.0', 'garden', { k: 'mod', set: 9, dep: 14, w: 0.7, c: '#4a4c50', rf: 'f', st: 2 }, 'broadleaf:2', { fo: 3.5, dep: 40 }],
     // ===== Venn St (south from Keane St to the Columba Pl turn), LEFT (east) =====
-    ['L', 226, 205, 'pk:1.0', 'lawn', { k: 'cot', set: 8, dep: 13, w: 0.7, c: '#f4f3ef', rf: 'w' }, 'palm_date:1', { fo: 3.6, dep: 36, vt: 'peppermint:1' }],
-    ['L', 205, 185, 'wW:0.9', 'garden', { k: 'mod', set: 8, dep: 14, w: 0.75, c: '#f6f6f3', rf: 'f', st: 2, gar: 1 }, 'broadleaf:1', { fo: 3.6, dep: 36, hb: 1.6, vt: 'peppermint:1', dr: 'cp' }],
-    ['L', 185, 160, 'wW:1.0', 'lawn', { k: 'house', set: 9, dep: 14, w: 0.75, c: '#f0eee8', rf: 'c', gar: 1 }, 'broadleaf:1', { fo: 3.6, dep: 36, vt: 'peppermint:1', dr: 'cp' }],
-    ['L', 160, 140, 'wC:1.6', 'garden', { k: 'house2', set: 9, dep: 14, w: 0.7, c: '#e9dfca', rf: 't' }, 'broadleaf:1', { fo: 3.6, dep: 36, vt: 'peppermint:1' }],
-    ['L', 140, 112, 'wC:1.4', 'garden', { k: 'house2', set: 9, dep: 14, w: 0.7, c: '#e7d7b5', rf: 't' }, 'conifer:1', { fo: 3.6, dep: 36, vt: 'peppermint:1' }],
+    ['L', 226, 205, 'pk:1.0', 'lawn', { k: 'cot', set: 8, dep: 13, w: 0.7, c: '#f4f3ef', rf: 'w' }, 'palm_date:1', { fo: 3.6, dep: 36, vt: 'plane:1' }],
+    ['L', 205, 185, 'wW:0.9', 'garden', { k: 'mod', set: 8, dep: 14, w: 0.75, c: '#f6f6f3', rf: 'f', st: 2, gar: 1 }, 'broadleaf:1', { fo: 3.6, dep: 36, hb: 1.6, vt: 'broadleaf:1', dr: 'cp' }],
+    ['L', 185, 160, 'wW:1.0', 'lawn', { k: 'house', set: 9, dep: 14, w: 0.75, c: '#f0eee8', rf: 'c', gar: 1 }, 'broadleaf:1', { fo: 3.6, dep: 36, vt: 'gum:1', dr: 'cp' }],
+    ['L', 160, 140, 'wC:1.6', 'garden', { k: 'house2', set: 9, dep: 14, w: 0.7, c: '#e9dfca', rf: 't' }, 'broadleaf:1', { fo: 3.6, dep: 36, vt: 'plane:1' }],
+    ['L', 140, 112, 'wC:1.4', 'garden', { k: 'house2', set: 9, dep: 14, w: 0.7, c: '#e7d7b5', rf: 't' }, 'conifer:1', { fo: 3.6, dep: 36, vt: 'broadleaf:1' }],
     // ===== Venn St, RIGHT (west): St Columba's (fwbay.js) then the limestone cottage before Columba Pl =====
-    ['R', 188, 152, 'wL:0.7', 'garden', { k: 'fed', set: 8, dep: 14, w: 0.7, c: '#d9c8a2', rf: 'w', ch: 1 }, 'peppermint:1', { fo: 3.6, dep: 34, hb: 0.9, vt: 'peppermint:1', dr: 'cp' }],
-    ['R', 152, 138, 'wL:0.7', 'garden', { k: 'house', set: 9, dep: 12, w: 0.7, c: '#e6dccb', rf: 'w', gar: 1 }, '', { fo: 3.6, dep: 34, vt: 'peppermint:1', dr: 'cp' }],
+    ['R', 188, 152, 'wL:0.7', 'garden', { k: 'fed', set: 8, dep: 14, w: 0.7, c: '#d9c8a2', rf: 'w', ch: 1 }, 'broadleaf:1', { fo: 3.6, dep: 34, hb: 0.9, vt: 'gum:1', dr: 'cp' }],
+    ['R', 152, 138, 'wL:0.7', 'garden', { k: 'house', set: 9, dep: 12, w: 0.7, c: '#e6dccb', rf: 'w', gar: 1 }, '', { fo: 3.6, dep: 34, vt: 'plane:1', dr: 'cp' }],
     // ===== Venn St past the Columba Pl turn (the street the route leaves; turnext.js draws its road): frame = metres along it =====
-    ['L', 8, 40, 'wC:1.5', 'garden', { k: 'house2', set: 6, dep: 14, w: 0.8, c: '#e8d6b0', rf: 't' }, 'palm_date:1', { leg: 1, dep: 34, vt: 'peppermint:1' }],
-    ['L', 40, 76, 'wC:1.8', 'garden', { k: 'house2', set: 9, dep: 14, w: 0.6, c: '#ece6d8', rf: 'c' }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'peppermint:2', hb: 1.4 }],
-    ['L', 76, 102, 'wG:1.2', 'lawn', { k: 'house', set: 8, dep: 14, w: 0.7, c: '#e4e0d8', rf: 'g' }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'peppermint:1' }],
-    ['R', 8, 38, 'wC:1.0', 'garden', { k: 'col', set: 8, dep: 14, w: 0.7, c: '#f3f1ec', rf: 'g' }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'peppermint:1', hb: 1.0 }],
-    ['R', 38, 70, 'wG:1.6', 'garden', { k: 'house2', set: 9, dep: 14, w: 0.7, c: '#e6e2da', rf: 'c' }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'peppermint:2' }],
-    ['R', 70, 100, 'hd:1.6', 'garden', { k: 'house', set: 9, dep: 13, w: 0.7, c: '#ddd6c8', rf: 't' }, '', { leg: 1, dep: 34, vt: 'peppermint:1' }],
+    ['L', 8, 40, 'wC:1.5', 'garden', { k: 'house2', set: 6, dep: 14, w: 0.8, c: '#e8d6b0', rf: 't' }, 'palm_date:1', { leg: 1, dep: 34, vt: 'broadleaf:1' }],
+    ['L', 40, 76, 'wC:1.8', 'garden', { k: 'house2', set: 9, dep: 14, w: 0.6, c: '#ece6d8', rf: 'c' }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'gum:2', hb: 1.4 }],
+    ['L', 76, 102, 'wG:1.2', 'lawn', { k: 'house', set: 8, dep: 14, w: 0.7, c: '#e4e0d8', rf: 'g' }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'plane:1' }],
+    ['R', 8, 38, 'wC:1.0', 'garden', { k: 'col', set: 8, dep: 14, w: 0.7, c: '#f3f1ec', rf: 'g' }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'broadleaf:1', hb: 1.0 }],
+    ['R', 38, 70, 'wG:1.6', 'garden', { k: 'house2', set: 9, dep: 14, w: 0.7, c: '#e6e2da', rf: 'c' }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'gum:2' }],
+    ['R', 70, 100, 'hd:1.6', 'garden', { k: 'house', set: 9, dep: 13, w: 0.7, c: '#ddd6c8', rf: 't' }, '', { leg: 1, dep: 34, vt: 'plane:1' }],
+    // ----- south of the roundabout (Street View 2026-04 / 2024-05, every 20 m) -----
+    ['L', 118, 150, 'wW:1.4', 'lawn', { k: 'mod', set: 8, dep: 14, w: 0.75, c: '#f4f3ef', rf: 'f', st: 1 }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'plane:1' }],
+    ['L', 150, 184, 'wK:1.8', 'lawn', { k: 'mod', set: 9, dep: 15, w: 0.75, c: '#f2f1ec', rf: 'f', st: 2, gar: 1 }, 'olive:1', { leg: 1, dep: 34, vt: 'broadleaf:1', dr: 'cp' }],
+    ['L', 203, 232, 'tb:1.6', 'sand', { k: 'cot', set: 16, dep: 9, w: 0.5, c: '#9ea3a6', rf: 'g' }, 'gum:1', { leg: 1, dep: 34, vt: 'gum:1' }],
+    ['L', 232, 274, 'pk:1.2', 'lawn', { k: 'cot', set: 9, dep: 13, w: 0.7, c: '#f4f3ef', rf: 'g', ch: 1 }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'broadleaf:1' }],
+    ['R', 118, 155, 'wR:0.6', 'garden', { k: 'house', set: 9, dep: 13, w: 0.7, c: '#a9503a', rf: 't' }, 'gum:1', { leg: 1, dep: 34, vt: 'plane:1', dr: 'gr' }],
+    ['R', 155, 184, 'wR:0.6', 'lawn', { k: 'house', set: 10, dep: 13, w: 0.7, c: '#b45c40', rf: 't', ch: 1 }, 'broadleaf:1', { leg: 1, dep: 34, vt: 'broadleaf:1', dr: 'gr' }],
+    ['R', 203, 225, 'pave:0', 'pave', { k: 'fed', set: 3, dep: 12, w: 0.8, c: '#ece5d2', rf: 'w' }, '', { leg: 1, dep: 34, vt: 'plane:1' }],
+    ['R', 225, 250, 'wW:1.6', 'garden', { k: 'mod', set: 9, dep: 14, w: 0.7, c: '#f1f0ea', rf: 'f', st: 2 }, 'broadleaf:2', { leg: 1, dep: 34, vt: 'broadleaf:1' }],
+    ['R', 250, 274, 'wW:0.9', 'garden', { k: 'cot', set: 8, dep: 13, w: 0.7, c: '#f0ede6', rf: 'g', ch: 1 }, 'coral:1', { leg: 1, dep: 34, vt: 'plane:1' }],
   ];
   // Venn St south of Columba Pl (OSM way 30594420, ODbL), as in turnext.js 'venn-s'; its asphalt, verge, path and 3.5 m lawn end
   // 10.8 m from the centreline, so these lots start there
-  const LEGLL = [[-32.0024505, 115.7636572], [-32.0024897, 115.763656], [-32.0032222, 115.7636744], [-32.0033313, 115.7636879], [-32.0033674, 115.7636924], [-32.0033925, 115.7637098], [-32.0034247, 115.7637151], [-32.0034545, 115.7637018], [-32.0034719, 115.7636806], [-32.0034822, 115.7636371]];
+  const LEGLL = [[-32.0024505, 115.7636572], [-32.0024897, 115.763656], [-32.0032222, 115.7636744], [-32.0033313, 115.7636879], [-32.003468, 115.763651], [-32.003732, 115.763664], [-32.004189, 115.763668], [-32.00478, 115.763654], [-32.00500, 115.763648]];
+  // beyond the roundabout (d > ~113) turnext draws nothing: our own road, and heights from anchor parts that read Google's ground (as turnext does)
+  // 8 Nov: pgfinal draws ALL of Venn St south of Columba Pl itself (turnext's 'venn-s' leg is switched off by integrate.py): its height
+  // profile came from ring readings inside its own sunk corridor and ratcheted down (7 m below Google's street on some loads)
+  const L2A = 7, L2B = 276, RB = [-32.003405, 115.763672], RBR = 10.5, XS = [[-32.003405, 115.763672, 44], [-32.004189, 115.763668, 44]];   // road d range, roundabout, cross streets (lat, lon, stub length)
 
   // ---------------------------------------------------------------- road skeleton
   const R = road, sk = [];
@@ -27104,7 +27270,7 @@ LMX.pgfinal = function (H) {
   };
   noiseTex.wrapS = noiseTex.wrapT = roofTex.wrapS = roofTex.wrapT = glassTex.wrapS = glassTex.wrapT = THREE.RepeatWrapping;
   // ---------------------------------------------------------------- palette
-  const GROUND = { lawn: '#6e8c44', pave: '#c8bfae', brick: '#a3553f', asph: '#4b4b4e', sand: '#cbb58a', scrub: '#a99a6e', garden: '#5f7f3c', park: '#8a9a52', verge: '#79964a' };
+  const GROUND = { lawn: '#80ac4b', pave: '#c8bfae', brick: '#a3553f', asph: '#4b4b4e', sand: '#cbb58a', scrub: '#a99a6e', garden: '#74a044', park: '#8fae55', verge: '#86b04f' };
   const DRIVE = { cp: '#cfc9bd', bp: '#9e5b44', gr: '#c2b291' };
   const WALL = { wB: ['#9c4a36', 1.1], wO: ['#c8774a', 1.0], wC: ['#e4d6b8', 1.6], wW: ['#f1eee7', 1.6], wL: ['#cdb98c', 1.4], wP: ['#d4c196', 0.6], wR: ['#9c4a36', 0.6], wK: ['#2f2f31', 2.2], tb: ['#c69c6d', 1.1], wG: ['#9da0a2', 1.0], pk: ['#f4f3ef', 1.0], hd: ['#3f6a2e', 1.6], ms: ['#2f7d4f', 1.8], rl: ['#2a2a2a', 1.0], pl: ['#c9b48d', 0.55], lg: ['#7a6248', 0.5] };
   const ROOF = { t: '#b0563a', g: '#7b7f84', c: '#4a4c50', b: '#7a4a35', f: '#8d8d8a', s: '#585e66', w: '#a9adae' };
@@ -27228,6 +27394,36 @@ LMX.pgfinal = function (H) {
       for (let tryN = 0; tryN < 6; tryN++) { const d = d0 + 4 + rnd() * (d1 - d0 - 8), u = (Bs && Bs.k !== 'pylon') ? (rnd() < 0.6 ? FO + 1.8 + rnd() * Math.max(0.5, Bs.set - FO - 4) : Bs.set + (Bs.dep || 14) + 3 + rnd() * Math.max(2, DEPTH - Bs.set - (Bs.dep || 14) - 5)) : FO + 2 + rnd() * (DEPTH - FO - 6), p = at(d, s, u);
         if (isStreet(p[0], p[1]) || isForeign(p[0], p[1]) || blds.some(b => inside(b.pl, p[0], p[1]))) continue;
         treesToPlant.push({ leg: LEGMODE, x: p[0], z: p[1], sp, h: ({ gum: 15, peppermint: 9, plane: 13, norfolk: 21, palm_washy: 14, palm_queen: 9, palm_date: 10, cypress: 11, conifer: 9, fig: 16, jacaranda: 9, olive: 5, paperbark: 9, broadleaf: 10 }[sp] || 10) * (0.8 + rnd() * 0.4) }); break; } } }
+  }
+  // ---- Venn St south of Columba Pl: our own road (asphalt 3.3 m each side, kerb, verge, path, lawn to the lot fronts at 10.85 m),
+  // the roundabout and short stubs of the two cross streets, all on our own height profile (legGround)
+  const legS = (x, z) => { let bs = 0, bd = 1e18; for (let i = 1; i < LP.length; i++) { const a = LP[i - 1], b = LP[i], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1e-9; const u = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)), px = a[0] + dx * u - x, pz = a[1] + dz * u - z, d = px * px + pz * pz; if (d < bd) { bd = d; bs = LC[i - 1] + u * Math.sqrt(L2); } } return bs; };
+  const RBL = toLocal(RB[0], RB[1]), RBD = legS(RBL.x, RBL.z), XD = XS.map(([la, lo, len]) => { const v = toLocal(la, lo); return { d: legS(v.x, v.z), len }; });
+  LEGMODE = true;
+  { const C = chunk(0).vc, ASPH = col('#74767b'), KERB = col('#d2cdc3'), VERGE = col('#86b04f'), PATH = col('#cfc9bc'), LAWN2 = col('#7fa84a');
+    const inX = d => XD.some(x => Math.abs(d - x.d) < 6.6) || Math.abs(d - RBD) < RBR;
+    const strip = (d, e, sg, o0, o1, y0, y1, cc) => { const a = atLeg(d, sg, o0 - 10.85), b = atLeg(e, sg, o0 - 10.85), c = atLeg(d, sg, o1 - 10.85), f = atLeg(e, sg, o1 - 10.85);
+      quad(C, [[a[0], y0, a[1]], [b[0], y0, b[1]], [c[0], y1, c[1]], [f[0], y1, f[1]]], null, jit(cc, 0.96 + rnd() * 0.08), [[d / 4, o0 / 4], [e / 4, o0 / 4], [d / 4, o1 / 4], [e / 4, o1 / 4]]); };
+    for (let d = L2A; d < L2B - 0.01; d += 2) { const e = Math.min(L2B, d + 2), dm = (d + e) / 2, rb = Math.abs(dm - RBD) < RBR, x = inX(dm);
+      for (const sg of [-1, 1]) { if (!rb) { strip(d, e, sg, 0, 3.3, 0.02, 0.02, ASPH); } if (!x) { strip(d, e, sg, 3.3, 3.3, 0.02, KH, KERB); strip(d, e, sg, 3.3, 3.5, KH, KH, KERB); strip(d, e, sg, 3.5, 6.2, KH, KH, VERGE); strip(d, e, sg, 6.2, 7.7, KH, KH, PATH); strip(d, e, sg, 7.7, 10.85, KH, KH, LAWN2); }
+        else if (!rb) { strip(d, e, sg, 3.3, 10.85, 0.02, 0.02, ASPH); } } }
+    // roundabout: asphalt disc, red brick ring, mulch island, two clipped shrubs (Street View 2026-04)
+    { const N = 28, c = [RBL.x, RBL.z], ring = (r0, r1, y0, y1, cc) => { for (let k = 0; k < N; k++) { const a0 = k / N * 6.2832, a1 = (k + 1) / N * 6.2832; quad(C, [[c[0] + Math.cos(a0) * r0, y0, c[1] + Math.sin(a0) * r0], [c[0] + Math.cos(a1) * r0, y0, c[1] + Math.sin(a1) * r0], [c[0] + Math.cos(a0) * r1, y1, c[1] + Math.sin(a0) * r1], [c[0] + Math.cos(a1) * r1, y1, c[1] + Math.sin(a1) * r1]], null, jit(cc, 0.97 + rnd() * 0.06)); } };
+      ring(0, RBR + 0.5, 0.02, 0.02, ASPH); ring(3.6, 3.6, 0.02, 0.2, col('#a8503c')); ring(2.9, 3.6, 0.2, 0.2, col('#b4583f')); ring(0, 2.9, 0.26, 0.26, col('#5a3f2c'));
+      for (const [dx, dz] of [[-1.1, 0.5], [1.0, -0.6]]) box(C, c[0] + dx, c[1] + dz, 1, 0, 0.6, 0.6, 0.26, 1.0, col('#4c6b33'), [c[0], c[1]]); }
+    // cross-street stubs (level, at the street's height where they meet): asphalt 6.6 m, kerbs, verges
+    for (const X of [{ d: RBD, len: 46 }, ...XD.slice(1)]) { const c = atLeg(X.d, 1, -10.85), t = tang(X.d), n = [-t[1], t[0]], A = [c[0], c[1]];
+      for (const sg of [-1, 1]) for (let o = (X.d === RBD ? RBR : 3.3); o < X.len; o += 3) { const o1 = Math.min(X.len, o + 3);
+        for (const [w0, w1, y0, y1, cc] of [[-3.3, 3.3, 0.02, 0.02, ASPH], [3.3, 3.3, 0.02, KH, KERB], [-3.3, -3.3, 0.02, KH, KERB], [3.3, 7.0, KH, KH, VERGE], [-7.0, -3.3, KH, KH, VERGE]]) {
+          const P = (oo, w) => [c[0] + n[0] * sg * oo + t[0] * w, c[1] + n[1] * sg * oo + t[1] * w];
+          const p0 = P(o, w0), p1 = P(o1, w0), p2 = P(o, w1), p3 = P(o1, w1); quad(C, [[p0[0], y0, p0[1]], [p1[0], y0, p1[1]], [p2[0], y1, p2[1]], [p3[0], y1, p3[1]]], [A, A, A, A], jit(cc, 0.96 + rnd() * 0.08)); } }
+      for (const sg of [-1, 1]) { const ring = [[0, -7.2], [X.len, -7.2], [X.len, 7.2], [0, 7.2]].map(([oo, w]) => toLL(c[0] + n[0] * sg * oo + t[0] * w, c[1] + n[1] * sg * oo + t[1] * w));
+        parts.push({ name: `pgfinal-vx-${X.d | 0}-${sg}`, ll: ring.flat().map(v => +v.toFixed(7)), sink: true, sinkAt: sinkFn(true), obj: new THREE.Group() }); } }
+    // Google's road and verges under ours: sunk
+    for (let d = L2A - 3; d < L2B - 0.01; d += 12) { const e = Math.min(L2B, d + 12); for (const sg of [-1, 1]) { const ring = [atLeg(d, sg, -10.85), atLeg(e, sg, -10.85), atLeg(e, sg, 0), atLeg(d, sg, 0)].map(q => toLL(...q));
+      parts.push({ name: `pgfinal-v2-${sg}-${d | 0}`, ll: ring.flat().map(v => +v.toFixed(7)), sink: true, sinkAt: sinkFn(true), obj: new THREE.Group() }); } }
+    // street lights on the west verge, every ~45 m
+    for (let d = 30; d < L2B; d += 45) { if (inX(d)) continue; const p = atLeg(d, 1, 4.9 - 10.85), t = tang(d); box(C, p[0], p[1], t[0], t[1], 0.09, 0.09, KH, KH + 7.5, col('#8d9196'), p); const q = atLeg(d, 1, 3.6 - 10.85); box(C, q[0], q[1], t[0], t[1], 0.35, 0.15, KH + 7.3, KH + 7.5, col('#8d9196'), q); }
   }
   LEGMODE = false;
   // ---------------------------------------------------------------- building generator
@@ -27360,9 +27556,19 @@ LMX.pgfinal = function (H) {
     let y = r.h + KH; try { if (typeof groundAt === 'function') { const g = groundAt(j, sd, Math.max(0, edge)); if (g === g && g != null) y = g; } } catch (e) { }
     return Math.max(r.h - 2.5, Math.min(r.h + 3.5, y)) - KH; };   // geometry carries the kerb height itself
   // Venn St past Columba Pl: heights from turnext's own asphalt (it measures Google's ground along the street), probed every 5 m
-  let legH = null, legStable = 0, legTrees = false; const legProbe = () => { const sc = root.parent; if (!sc) return null; let tx = null; sc.traverse(o => { if (o.name === 'turnext') tx = o; }); if (!tx || !tx.visible) return null;
-    const rc = new THREE.Raycaster(), hs = []; for (let d = 0; d <= LC[LC.length - 1] + 0.01; d += 5) { const p = atLeg(d, 1, -10.85); rc.set(new THREE.Vector3(p[0], 900, p[1]), new THREE.Vector3(0, -1, 0)); const h = rc.intersectObject(tx, true)[0]; hs.push(h ? h.point.y : null); }
-    if (!hs.some(v => v != null)) return null; for (let i = 0; i < hs.length; i++) if (hs[i] == null) hs[i] = hs.find(v => v != null); return hs; };
+  // Heights along Venn St south: Google's own ground 58 m either side of the street (clear of every sunk lot), lowest first hit of a 3 x 3
+  // ray grid there (lawn between houses, not roofs or crowns), the two sides averaged (the land's cross-fall cancels), then tied to the
+  // game's road height at the Columba Pl junction by the same reading taken there. Re-read while tiles stream in; grade held under 9 %.
+  let legH = null, legStable = 0, legTrees = false; const rcG = new THREE.Raycaster(), vO = new THREE.Vector3(), vD = new THREE.Vector3(0, -1, 0);
+  const gRay = (x, z, TG) => { let lo = Infinity, n = 0; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const px = x + a * 3, pz = z + b * 3; if (isForeign(px, pz)) continue; vO.set(px, 800, pz); rcG.set(vO, vD); const h = rcG.intersectObject(TG, true)[0]; if (h) { lo = Math.min(lo, h.point.y); n++; } } return n >= 3 ? lo : null; };
+  const legProbe = () => { const g = window.__game, TG = g && g.tiles && g.tiles.group; if (!TG) return null; const L = LC[LC.length - 1], raw = [];
+    for (let d = 0; d <= L + 0.01; d += 10) { const e = atLeg(d, -1, 58 - 10.85), w = atLeg(d, 1, 58 - 10.85), he = gRay(e[0], e[1], TG), hw = gRay(w[0], w[1], TG); raw.push(he != null && hw != null ? (he + hw) / 2 : (he != null ? he : hw)); }
+    // junction tie: route road height at Venn/Columba, against the same reading there
+    const j0 = nearJ(LP[0][0], LP[0][1]); if (j0 < 0 || raw[0] == null) return null; const off = raw[0] - R[j0].h;
+    let prev = R[j0].h; const g10 = []; for (let i = 0; i < raw.length; i++) { let h = raw[i] == null ? prev : raw[i] - off; if (i === 0) h = R[j0].h; h = Math.max(prev - 0.9, Math.min(prev + 0.9, h)); g10.push(h); prev = h; }
+    const sm = g10.map((v, i) => i === 0 ? v : (g10[Math.max(0, i - 1)] + 2 * v + g10[Math.min(g10.length - 1, i + 1)]) / 4);
+    const hs = []; for (let d = 0; d <= L + 0.01; d += 5) { const f = d / 10, i0 = Math.min(sm.length - 1, Math.floor(f)), i1 = Math.min(sm.length - 1, i0 + 1), t = f - Math.floor(f); hs.push(sm[i0] + (sm[i1] - sm[i0]) * t + 0.02); }
+    window.__pgfinalLeg = { off: +off.toFixed(2), miss: raw.filter(v => v == null).length, h10: sm.map(v => +v.toFixed(2)) }; return hs; };
   const legReady = () => { if (legH) return true; const hs = legProbe(); if (!hs) return false; legH = hs; return true; };
   const legGround = (x, z) => { let bs = 0, bd = 1e18; for (let i = 1; i < LP.length; i++) { const a = LP[i - 1], b = LP[i], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1e-9; const u = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)), px = a[0] + dx * u - x, pz = a[1] + dz * u - z, d = px * px + pz * pz; if (d < bd) { bd = d; bs = LC[i - 1] + u * Math.sqrt(L2); } }
     const f = bs / 5, i0 = Math.max(0, Math.min(legH.length - 1, Math.floor(f))), i1 = Math.min(legH.length - 1, i0 + 1), t = Math.max(0, Math.min(1, f - i0)); return legH[i0] + (legH[i1] - legH[i0]) * t - 0.02; };
@@ -27382,10 +27588,12 @@ LMX.pgfinal = function (H) {
   let waitF = 0;
   let legFitted = false; const fitLeg = () => { for (const m of meshes) { if (!m.userData.leg) continue; const P = m.geometry.attributes.position, A = m.userData.anch, Y = m.userData.yo; for (let i = 0; i < P.count; i++) P.setY(i, legGround(A[i * 2], A[i * 2 + 1]) + Y[i]); P.needsUpdate = true; m.geometry.computeBoundingSphere(); m.geometry.computeBoundingBox(); m.visible = true; }
     legFitted = true; console.log('pgfinal leg', JSON.stringify(legH.map(v => +v.toFixed(2)))); };
-  const plantLeg = () => { legTrees = true; const PT = window.PerthTrees && !window.__noPerthTrees ? window.PerthTrees : null; if (PT) for (const t of treesToPlant) if (t.leg) { try { PT.add({ x: t.x, y: legGround(t.x, t.z) + KH - 0.2, z: t.z, h: t.h, sp: PT.SPECIES && PT.SPECIES[t.sp] ? t.sp : 'gum', rot: Math.random() * 6.28 }); } catch (e) { } }
+  const plantLeg = () => { legTrees = true; const PT = window.PerthTrees && !window.__noPerthTrees ? window.PerthTrees : null; if (PT) for (const t of treesToPlant) if (t.leg) { try { t.h0 = legGround(t.x, t.z); t.obj = PT.add({ x: t.x, y: t.h0 + KH - 0.2, z: t.z, h: t.h, sp: PT.SPECIES && PT.SPECIES[t.sp] ? t.sp : 'gum', rot: Math.random() * 6.28 }); } catch (e) { } }
   };
+  const moveLegTrees = () => { const PT = window.PerthTrees; if (!PT || !PT.TREES || !PT.remove) return; const mine = new Set(); for (const t of treesToPlant) if (t.leg && typeof t.obj === 'number' && Math.abs(legGround(t.x, t.z) - t.h0) > 0.15 && PT.TREES[t.obj]) mine.add(PT.TREES[t.obj]);
+    if (!mine.size) return; PT.remove(tt => mine.has(tt)); for (const t of treesToPlant) if (t.leg && typeof t.obj === 'number' && mine.has(PT.TREES[t.obj])) { t.h0 = legGround(t.x, t.z); try { t.obj = PT.add({ x: t.x, y: t.h0 + KH - 0.2, z: t.z, h: t.h, sp: PT.SPECIES[t.sp] ? t.sp : 'gum', rot: t.rot || 1 }); } catch (e) { } } };
   const update = () => { waitF++; if (fitted && planted && !legFitted && waitF % 30 === 0 && legReady()) fitLeg();
-    if (legFitted && !legTrees && waitF % 90 === 0) { const hs = legProbe(); if (hs && hs.some((v, i) => Math.abs(v - legH[i]) > 0.1)) { legH = hs; legStable = 0; fitLeg(); } else if (++legStable >= 6 || waitF > 6000) plantLeg(); } if (fitted && !planted && (window.__ptrees || !window.PerthTrees || window.__noPerthTrees || waitF > 2000)) plant(); if (!fitted) { if (waitF > 2) { try { fit(); } catch (e) { console.error('pgfinal fit', e); fitted = true; } } return; }
+    if (legFitted && waitF % 90 === 0 && legStable < 14) { const hs = legProbe(); if (hs && hs.some((v, i) => Math.abs(v - legH[i]) > 0.1)) { legH = hs; legStable = 0; fitLeg(); if (legTrees) moveLegTrees(); } else { ++legStable; if (!legTrees && (legStable >= 6 || waitF > 6000)) plantLeg(); } } if (fitted && !planted && (window.__ptrees || !window.PerthTrees || window.__noPerthTrees || waitF > 2000)) plant(); if (!fitted) { if (waitF > 2) { try { fit(); } catch (e) { console.error('pgfinal fit', e); fitted = true; } } return; }
     // distance culling per chunk (the strip is 3.4 km long)
     const g = window.__game, C = g && g.C; if (!C) return; for (const m of meshes) { const bs = m.geometry.boundingSphere; if (!bs) continue; const d = Math.hypot(bs.center.x - C.x, bs.center.z - C.z) - bs.radius; m.visible = d < 650 && (!m.userData.leg || legFitted); } };
   return { parts, replaces, update };
@@ -30217,12 +30425,12 @@ await __LDstep(46);
     // green chain-link fence along the oval
     const chain = mat({ map: tex(64, 64, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = '#2f5d35'; g.lineWidth = 2; for (let x = -h; x < w + h; x += 8) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + h, h); g.stroke(); g.beginPath(); g.moveTo(x + h, 0); g.lineTo(x, h); g.stroke(); } }), transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
     chain.map.repeat.set(20, 4); chain.opacity = 0.75;
-    for (let km = 13.43; km < 13.6; km += 0.008) { const P = frameAt(km, 'left', FOOT + 0.6), g2 = new THREE.Group(); g2.add(box(8, 1.4, 0.04, chain)); g2.add(box(0.06, 1.5, 0.06, mat({ color: 0x2f5d35 }), 4, 0, 0)); put(P, g2, KERB_H); }
+    if (!window.__lmxRepl.has('mlcoval-fence')) for (let km = 13.43; km < 13.6; km += 0.008) { const P = frameAt(km, 'left', FOOT + 0.6), g2 = new THREE.Group(); g2.add(box(8, 1.4, 0.04, chain)); g2.add(box(0.06, 1.5, 0.06, mat({ color: 0x2f5d35 }), 4, 0, 0)); put(P, g2, KERB_H); }
     // footbridge: black box-girder deck, close vertical-bar railings, square black columns, straight ramp on the MLC side, loop ramp opposite
-    footbridge(13.47, { H: 6.2, deckD: 1.2, m: M6.black, truss: false, mast: false, cols: [-1, 1], farRight: 3,
+    footbridge(13.425, { H: 6.2, deckD: 1.2, m: M6.black, /*mlcoval*/ truss: false, mast: false, cols: [-1, 1], farRight: 3,
       extra: (G, span, H) => {
         // straight ramp along the oval (left side), falling back towards the start of the route
-        const ramp = new THREE.Group(), RL = 60; const rd = box(RL, 0.5, 2.6, M6.black, 0, -0.25, 0); rd.rotation.z = Math.atan2(H, RL); ramp.add(rd); ramp.position.set(-span / 2 - 1.5, H / 2, -RL / 2 * 0);
+        const ramp = new THREE.Group(), RL = 42; /*mlcoval ramp*/ const rd = box(RL, 0.5, 2.6, M6.black, 0, -0.25, 0); rd.rotation.z = -Math.atan2(H, RL); /*mlcoval slope*/ ramp.add(rd); ramp.position.set(-span / 2 - 1.5, H / 2, -RL / 2 * 0);
         ramp.rotation.y = Math.PI / 2; ramp.position.set(-span / 2 - 1.6, H / 2 - 0.3, -RL / 2 + 1.5); G.add(ramp);
         for (let k = 1; k < 6; k++) G.add(box(0.4, H * (1 - k / 6), 0.4, M6.black, -span / 2 - 1.6, 0, -k * RL / 6 + 1.5));
         // loop ramp on the far side: a circle of 12 m radius climbing to deck height
@@ -35208,6 +35416,7 @@ await __LDstep(57);
       return { id: 'nova', height: 1.37, box: [0.89, 0.58, 2.0], boxC: 0.58, eye: 1.08, mirrorT: 0.31, handles: [0.50, 0.76], shut: [[0.29, 1, 7], [0.553, 1, 7], [0.79, 1, 7]],
         rimR: 0.17, tyreW: 0.112, engY: -0.06, cam: 0x9aa0a6, lean: 1.7, glass: 0x3c4853 };
     },
+    tiguan: () => { const m = MODELS.ix3(); L = 4.45; Z0 = -L / 2; AXLE_F = Z0 + 0.87; AXLE_R = AXLE_F + 2.681; TRACK_F = TRACK_R = 0.80; WR = 0.363; ARCHES = [[AXLE_F, 0.46], [AXLE_R, 0.46]]; return Object.assign(m, { id: 'tiguan', height: 1.66, box: [0.95, 0.76, 2.22] }); },
     ix3: () => {
       L = 4.73; Z0 = -L / 2; AXLE_F = Z0 + 0.875; AXLE_R = AXLE_F + 2.864; TRACK_F = TRACK_R = 0.81; WR = 0.37;
       deckC = curve([[0, 0.76], [0.006, 0.93], [0.015, 0.985], [0.03, 1.005], [0.08, 1.025], [0.18, 1.055], [0.27, 1.085], [0.31, 1.10], [0.36, 1.12], [0.45, 1.13], [0.6, 1.14], [0.75, 1.15], [0.88, 1.16], [0.95, 1.16], [0.98, 1.14], [0.992, 1.06], [1, 0.92]]);
@@ -35341,6 +35550,7 @@ await __LDstep(57);
     nova: '"Toyota AE92" by Broniev (Sketchfab, CC BY 4.0), rebuilt as a 5-door hatch',
     lancer: '"Mitsubishi Lancer Sedan 2009" by Nieve5677 (Sketchfab, CC BY 4.0)',
     ix3: '"BMW iX3" by MattDoesBlender (Sketchfab, CC BY 4.0)',
+    tiguan: '"Volkswagen Tiguan R-Line" by niev (Sketchfab, CC BY 4.0)',
   };
   function skinBase() { return root.PERTH_CAR_SKINS != null ? root.PERTH_CAR_SKINS : 'cars/'; }
   function loadSkin(THREE, id) {
@@ -36250,6 +36460,7 @@ await __LDstep(57);
     const HEAD = {
       nova: { d: 0.05, house: 'chrome', lens: [0xf4f6f8, 0.26], items: [['cup', 0.42, 0.5, 0.06], ['bulb', 0.42, 0.5, 0.018], ['div', 0.82], ['flutes', 0.04, 0.8, 12]] },
       lancer: { d: 0.07, house: 'dark', lens: [0xffffff, 0.14], items: [['proj', 0.2, 0.42, 0.034], ['cup', 0.5, 0.48, 0.05], ['bulb', 0.5, 0.48, 0.016]] },
+      tiguan: { d: 0.05, house: 'black', lens: [0xffffff, 0.12], items: [['led', 0.3, 0.42], ['led', 0.55, 0.42], ['bar', 0.14, 0.74, 0.86], ['proj', 0.8, 0.45, 0.018]] },
       ix3: { d: 0.06, house: 'black', lens: [0xffffff, 0.12], items: [['led', 0.24, 0.47], ['led', 0.47, 0.47], ['drl', 0.24, 0.47], ['drl', 0.47, 0.47], ['blue', 0.1, 0.16, 0.62], ['proj', 0.72, 0.5, 0.02]] },
     };
     const headMats = {
@@ -36306,6 +36517,7 @@ await __LDstep(57);
         else if (t === 'drl') { const pos = at(p1, p2, H.d * 0.4), up = v.clone().multiplyScalar(0.03), out = u.clone().multiplyScalar(0.036);
           const hb = place(new THREE.Mesh(new THREE.BoxGeometry(0.078, 0.007, 0.007), headM), pos.clone().add(up)); hb.rotateZ(0); glow.push(hb);
           const vb = place(new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.05, 0.007), headM), pos.clone().add(out).addScaledVector(v, 0.006)); glow.push(vb); main = main || hb; }
+        else if (t === 'bar') { const m = place(new THREE.Mesh(new THREE.BoxGeometry((u1 - u0) * (p3 - p1), 0.007, 0.007), headM), at((p1 + p3) / 2, p2, H.d * 0.3)); glow.push(m); main = main || m; }
         else if (t === 'blue') { const m = place(new THREE.Mesh(new THREE.BoxGeometry((u1 - u0) * (p3 - p1), 0.006, 0.006), headMats.blue), at((p1 + p3) / 2, p2, H.d * 0.3)); }
       }
       for (const m of glow) m.userData.m0 = headM;
@@ -36468,8 +36680,21 @@ await __LDstep(57);
         gears: [1.0], finalDrive: 8.4, dragArea: P.dragArea * 1.08, engineBrakeG: 0.2, brakeG: P.brakeG * 0.95, steerLatAcc: P.steerLatAcc * 0.9, maxLock: 0.55,
         muFront: P.muFront - 0.03, muRear: P.muRear - 0.02, powerOversteer: P.powerOversteer * 0.6 }),
     },
+    tiguan: {
+      id: 'tiguan', year: '2019', make: 'Volkswagen', name: 'Tiguan', tag: "Mum's car. You borrowed it.", line: "Don't touch the radio. Don't eat in the car.",
+      stats: { speed: 3, accel: 3, handling: 2, tough: 5 },
+      special: { name: 'We have food at home', text: 'Drive past a takeaway without stopping: time off.' },
+      gimmick: { name: 'Built like Mum', text: 'Toughest car here. Shrugs off almost any crash.' },
+      paint: 0xf2f3f1,
+      finish: { metalness: 0.2, roughness: 0.3, clearcoat: 1 },
+      engine: null,
+      handling: P => ({ mass: 1700, cgToFront: 1.25, cgToRear: 1.43, cgHeight: 0.58, inertiaScale: P.inertiaScale * 1.2, wheelRadius: 0.363,
+        peakTorque: P.peakTorque * 1.08, torqueCurve: [[900, 0.6], [1500, 1.0], [4400, 1.0], [6000, 0.86], [6500, 0.78]], redline: 6500, upshiftRpm: 6200, downshiftRpm: 2600, launchRpm: 2500,
+        gears: [3.4, 2.75, 1.65, 1.06, 0.84, 0.86, 0.69], finalDrive: 4.47, dragArea: P.dragArea * 1.12, brakeG: P.brakeG * 0.97, steerLatAcc: P.steerLatAcc * 0.9, maxLock: 0.56,
+        muFront: P.muFront - 0.05, muRear: P.muRear - 0.04, powerOversteer: P.powerOversteer * 0.5 }),
+    },
   };
-  const ORDER = ['nova', 'lancer', 'ix3'];
+  const ORDER = ['nova', 'lancer', 'ix3', 'tiguan'];
   if (typeof module !== 'undefined' && module.exports) module.exports = { CARS, ORDER };
   if (!root.document) return;
 
@@ -36577,7 +36802,7 @@ await __LDstep(57);
     document.body.appendChild(root_);
     const $q = s => root_.querySelector(s);
     let canvas = $q('canvas'); /* menufix */
-    const PLATES = { nova: 'NOVA 92', lancer: 'LOUD 09', ix3: 'CLAIM IT' };
+    const PLATES = { nova: 'NOVA 92', lancer: 'LOUD 09', ix3: 'CLAIM IT', tiguan: 'MUMS CAR' };
     function render() {
       const c = cur();
       root_.querySelectorAll('.pc-tab').forEach(b => b.classList.toggle('on', b.dataset.id === st.id));
@@ -36726,10 +36951,10 @@ await __LDstep(57);
     }
 
     // ---------------- specials and gimmicks ----------------
-    const R = { mati: 0, matiAt: 0, claims: 0, drift: 0, driftChip: false, popCool: 0, regenChip: 0, mum: 0, mumArmed: true, mumT: -99, t: 0 };
+    const R = { food: [], tough: 0, mati: 0, matiAt: 0, claims: 0, drift: 0, driftChip: false, popCool: 0, regenChip: 0, mum: 0, mumArmed: true, mumT: -99, t: 0 };
     const progressM = () => { try { const T = root.__trk && root.__trk(), C = env.getC(); return T && T[C.idx] ? T[C.idx].d : 0; } catch (e) { return 0; } };
     function runStart() {
-      R.kerbChip = false; R.mati = st.id === 'nova' ? 1 : 0; R.matiAt = 0; R.claims = 0; R.drift = 0; R.popCool = 0; R.mum = 0; R.mumArmed = true; R.mumT = -99; R.t = 0;
+      R.food = []; R.tough = 0; R.kerbChip = false; R.mati = st.id === 'nova' ? 1 : 0; R.matiAt = 0; R.claims = 0; R.drift = 0; R.popCool = 0; R.mum = 0; R.mumArmed = true; R.mumT = -99; R.t = 0;
       matiPill.hidden = st.id !== 'nova'; textEl.classList.remove('on'); paintHud();
     }
     function paintHud() {
@@ -36737,6 +36962,7 @@ await __LDstep(57);
     }
     // Burnout crash hook (perth-burnout.js asks before it starts a wreck): return true to cancel the crash
     root.__carShield = (dv, kind) => {
+      if (st.id === 'tiguan') { const lim = kind === 'car' ? 10.5 : 18; if (dv < lim * 1.8) { R.tough++; chip('Not a scratch', R.tough > 1 ? 'Built like Mum' : "Mum's car. Built like Mum.", '#f3ece2', 1400); return true; } return false; }
       if (st.id === 'ix3') { const lim = kind === 'car' ? 10.5 : 18; if (dv < lim * 1.3) { R.claims++; chip('Claim it!', R.claims > 1 ? 'The accountant will sort it. Again.' : 'The accountant will sort it', '#cfe4ff', 1400); return true; } return false; }
       if (st.id === 'nova' && R.mati > 0) {
         R.mati = 0; R.matiAt = progressM(); paintHud();
@@ -36759,6 +36985,7 @@ await __LDstep(57);
       if (R.popCool > 0) R.popCool -= dt;
       R.t += dt;
       if (st.id === 'nova' && !R.mati && progressM() - R.matiAt > 4000) { R.mati = 1; paintHud(); chip('Mati recharged', 'Yiayia is watching over you', '#8cc4ff', 1400); }
+      if (st.id === 'tiguan') foodAtHome(C, kmh);
       if (!S || !S.T) return;
       if (st.id === 'lancer') {   // rally blood: drifting fills boost
         const sliding = Math.abs(C.drift || 0) > 0.22 && kmh > 40;
@@ -36777,7 +37004,20 @@ await __LDstep(57);
         if (R.mumArmed && S.meter < 0.08 && R.t > 2 && R.t - R.mumT > 30 && R.mum < MUM.length) { R.mumArmed = false; R.mumT = R.t; text('Mum', MUM[R.mum++]); }
       }
     }
-    function finishText() { return st.id === 'ix3' && R.claims > 0 ? (R.claims === 1 ? 'One prang. ' : R.claims + ' prangs. ') + 'The accountant says claim it.' : ''; }
+    // takeaways on the route (OSM): [lat, lon, name]. Pass within 70 m at 30 km/h or more: time off. Works both directions.
+    const FOOD = [[-31.95602, 115.90751, 'Red Rooster'], [-31.97478, 115.88166, "Hungry Jack's"], [-31.97517, 115.88155, 'KFC'], [-31.97468, 115.88302, "Maccas"], [-31.98294, 115.78025, "Hungry Jack's"]];
+    const FOOD_S = 2.0, FOOD_LINES = ['We have food at home', 'There is food at home', "We're not made of money", 'Mum made pastitsio', 'Yiayia is cooking!'];
+    let foodXY = null;
+    function foodAtHome(C, kmh) {
+      if (!foodXY) { if (!root.__toLocal) return; foodXY = FOOD.map(f => { const q = root.__toLocal(f[0], f[1]); return [q.x, q.z, f[2]]; }); }
+      if (!(env.state && env.state() === 'drive')) return;
+      for (let i = 0; i < foodXY.length; i++) { if (R.food.includes(i)) continue; const f = foodXY[i];
+        if (Math.hypot(C.x - f[0], C.z - f[1]) < 70 && kmh > 30) { R.food.push(i); if (env.timeBonus) env.timeBonus(FOOD_S);
+          chip(FOOD_LINES[(R.food.length - 1) % FOOD_LINES.length], 'Drove past ' + f[2] + ' &middot; -' + FOOD_S.toFixed(1) + ' s', '#ffd27a', 1700); } }
+    }
+    function finishText() {
+      if (st.id === 'tiguan') return R.food.length ? 'Drove past ' + R.food.length + (R.food.length === 1 ? ' takeaway' : ' takeaways') + ' (-' + (R.food.length * FOOD_S).toFixed(0) + ' s). We have food at home.' : '';
+      return st.id === 'ix3' && R.claims > 0 ? (R.claims === 1 ? 'One prang. ' : R.claims + ' prangs. ') + 'The accountant says claim it.' : ''; }
     function hideHud() { matiPill.hidden = true; textEl.classList.remove('on'); }
     // the results card: add the iX3's claim line under the time
     { const res = document.getElementById('results');
@@ -38320,6 +38560,33 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
 .pm-chip[hidden]{display:none}
 .pm-main{justify-content:center}
 @media (max-aspect-ratio:1/1){.pm-main{justify-content:flex-end}}
+
+/* ----- menu6 (8 Nov): Get ready and Settings in one screen */
+.m6-body{display:flex;gap:22px;align-items:flex-start;flex:1;min-height:0;overflow:auto;padding:2px 6px 90px 2px;scrollbar-width:thin}
+.m6-col{display:flex;flex-direction:column;gap:7px;width:min(460px,38vw);overflow:visible;padding:0}
+.m6-sec{font:700 12px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--aegean);margin:4px 0 2px 4px}
+.pm-race .pm-row,.m6-pad .pm-row{padding:5px 6px 5px 14px;grid-template-columns:118px 1fr}
+.pm-race .pm-vtxt b{font-size:16px}.pm-race .pm-vtxt small{font-size:11.5px}.pm-race .pm-arrow{width:40px;height:40px}
+.pm-race .pm-row:not(.sel) .pm-vtxt small{display:none}
+.m6-go{position:absolute;right:calc(var(--padx) + var(--sa-r));bottom:calc(28px + var(--sa-b));z-index:2}
+.m6-go .pm-go{margin:0}
+.pm.pm-overlay .m6-go,.pm.pm-overlay .pm-row[data-id="mode"]{display:none}
+.m6-pad{display:flex;flex-direction:column;gap:7px;width:min(560px,56vw);margin-top:14px;overflow:visible}
+.pm-grid>.pm-item:last-child:nth-child(odd){grid-column:1/-1}
+.pm-controls{overflow:auto;padding-bottom:calc(30px + var(--sa-b))}.pm-controls .pm-keys-wrap{flex:none;overflow:visible}.pm[data-s="controls"] .pm-foot{display:none}
+.pm[data-s="race"] .pm-shade{background:linear-gradient(90deg,rgba(251,240,222,.97) 0%,rgba(251,240,222,.95) 62%,rgba(251,240,222,.5) 80%,rgba(251,240,222,0) 92%)!important;-webkit-mask:none;mask:none}
+.pm[data-s="race"] .pm-foot{display:none}
+@media (max-aspect-ratio:1/1){
+  .m6-body{flex-direction:column;gap:12px}.pm-race .pm-crumb{display:none}.m6-col,.m6-pad{width:100%}
+  .pm[data-s="race"] .pm-bg{display:none}.pm[data-s="race"] .pm-shade{background:var(--wall)!important}
+  .m6-go{left:16px;right:16px;bottom:calc(14px + var(--sa-b))}.m6-go .pm-go{width:100%;justify-content:space-between}
+  .pm-race .pm-row,.m6-pad .pm-row{grid-template-columns:86px 1fr;padding:4px 4px 4px 10px}.pm-race .pm-row .pm-lab,.m6-pad .pm-row .pm-lab{font-size:10.5px;text-align:left;margin:0}
+  .pm-race .pm-arrow{width:36px;height:36px}
+}
+@media (max-height:500px) and (min-aspect-ratio:1/1){
+  .m6-col{width:min(380px,40vw)}.m6-body{padding-bottom:60px}.pm-race .pm-row{grid-template-columns:90px 1fr}
+  .m6-go{bottom:calc(10px + var(--sa-b))}
+}
 `;
 
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -38532,6 +38799,8 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
     for (const id of order) { const v = saved[id]; if (v != null && [...selects[id].options].some(op => op.value === String(v))) selects[id].value = String(v); }
     if (o.audio && saved.engine && o.audio.engines && o.audio.engines.some(e => e.id === saved.engine) && o.audio.engine !== saved.engine) { try { o.audio.setEngine(saved.engine, true); } catch (e) { } }
     if (!saved.v5 && selects.tod && [...selects.tod.options].some(op => op.value === 'midday')) selects.tod.value = 'midday';
+    if (selects.tod && [...selects.tod.options].some(op => op.value === 'midday')) selects.tod.value = 'midday';   // menu6: always lunchtime
+    if (selects.autoq) selects.autoq.value = '1';   // menu6: auto smoothness always on
     let storyMode = ['first', 'always', 'off'].includes(saved.story) ? saved.story : 'first';
     const persist = () => { const out = {}; for (const id of order) out[id] = selects[id].value; if (o.audio) out.engine = o.audio.engine; out.story = storyMode; out.v5 = 1; try { localStorage.setItem(o.storageKey, JSON.stringify(out)); } catch (e) { } };
 
@@ -38568,7 +38837,6 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
     const ITEMS = [
       { id: 'race', t: 'Get ready', s: 'Mode, handling, paint' },
       { id: 'times', t: 'Best times', s: 'Top 10 and ghosts' },
-      { id: 'settings', t: 'Settings', s: 'Graphics and sound' },
       { id: 'controls', t: 'How to play', s: 'Keys and controller' },
     ];
     const sMain = screen('main', `
@@ -38607,7 +38875,7 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
       <nav class="pm-list">
         <button class="pm-item pm-nav" type="button" data-a="resume"><span>Resume</span><small>Back on the road (Esc, B or Start)</small></button>
         <button class="pm-item pm-nav" type="button" data-a="restart"><span>Restart run</span><small>Back to the start line, clock reset</small></button>
-        <button class="pm-item pm-nav" type="button" data-a="psettings"><span>Settings</span><small>Graphics, gameplay, sound</small></button>
+        <button class="pm-item pm-nav" type="button" data-a="psettings"><span>Settings</span><small>Graphics, sound, traffic, handling</small></button>
         <button class="pm-item pm-nav" type="button" data-a="music"><span class="pm-mus">Music: On</span><small>Background music (Greko). Engine sound stays on</small></button>
         <button class="pm-item pm-nav" type="button" data-a="photo"><span>Photo mode</span><small>Line up a shot of the car</small></button>
         <button class="pm-item pm-nav" type="button" data-a="quit"><span>Main menu</span><small>Back to the couch. This run won’t count</small></button>
@@ -38694,10 +38962,10 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
     if (o.audio) {
       const A = o.audio;
       panes.sound.appendChild(customRow('snd-on', 'Sound', () => (A.muted ? 'off' : 'on'), v => A.setMuted(v === 'off'), () => [{ v: 'on', big: 'On' }, { v: 'off', big: 'Off', small: 'M also switches it in the game' }]));
-      panes.sound.appendChild(customRow('snd-vol', 'Volume', () => String(Math.round((A.volume || 0) * 10)), v => { A.setVolume(+v / 10); blips.change(); },
-        () => Array.from({ length: 11 }, (_, i) => ({ v: String(i), big: i * 10 + '%', small: '' }))));
+      panes.sound.appendChild(customRow('snd-vol', 'Volume', () => (A.muted ? '0' : String(Math.round((A.volume || 0) * 10))), v => { if (+v === 0) A.setMuted(true); else { A.setVolume(+v / 10); if (A.muted) A.setMuted(false); } blips.change(); },
+        () => Array.from({ length: 11 }, (_, i) => ({ v: String(i), big: i ? i * 10 + '%' : 'Off', small: i ? '' : 'M mutes and unmutes in the game' }))));
       const volRow = rowsById['snd-vol']; const bar = el('div', { class: 'pm-bar' }, '<i></i>'); volRow.querySelector('.pm-vtxt').appendChild(bar);
-      const vp = volRow._paint; volRow._paint = () => { vp(); bar.firstChild.style.width = Math.round((A.volume || 0) * 100) + '%'; volRow.querySelector('.pm-dots').innerHTML = ''; }; volRow._paint();
+      const vp = volRow._paint; volRow._paint = () => { vp(); bar.firstChild.style.width = (A.muted ? 0 : Math.round((A.volume || 0) * 100)) + '%'; volRow.querySelector('.pm-dots').innerHTML = ''; }; volRow._paint();
       if (A.engines && A.engines.length) panes.sound.appendChild(customRow('snd-eng', 'Engine', () => A.engine, v => A.setEngine(v), () => A.engines.map(e => { const [b, s] = splitLabel(e.label); return { v: e.id, big: b, small: s }; })));
       panes.sound.appendChild(customRow('snd-music', 'Music', () => (window.PerthMusic && !window.PerthMusic.on ? 'off' : 'on'), v => { const M = window.PerthMusic; if (M) M.setOn(v === 'on'); paintMusic(); }, () => [{ v: 'on', big: 'On', small: '"Greko" by Kevin MacLeod' }, { v: 'off', big: 'Off', small: 'Engine and street sounds stay on' }]));
       panes.sound.appendChild(el('p', { class: 'pm-note' }, 'Engine, birds and city sounds play once you are driving. Menu clicks follow the same volume.'));
@@ -38735,6 +39003,28 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
       panesEl.appendChild(panes[T.id]);
     }
     let tab = tabList[0].id;
+    // ======================= menu6: one Get ready screen (two columns on a computer, one list on a phone)
+    const GFX = { sharp: ['12', '2', '2'], balanced: ['20', '2', '2'], smooth: ['40', '1', '1'] };
+    const gfxNow = () => { const q = selects.quality ? selects.quality.value : '20'; return q === '12' ? 'sharp' : q === '40' ? 'smooth' : 'balanced'; };
+    const gfxSet = v => { const P = GFX[v]; ['quality', 'fx', 'scenery'].forEach((id, i) => { const s = selects[id]; if (s && s.value !== P[i]) { s.value = P[i]; s.dispatchEvent(new Event('change', { bubbles: true })); } }); };
+    const gfxRow = customRow('gfx', 'Graphics', gfxNow, gfxSet, () => [
+      { v: 'sharp', big: 'Sharp', small: 'Sharpest map and full effects. Needs a strong computer' },
+      { v: 'balanced', big: 'Balanced', small: 'Recommended. Turns itself down if the game stutters' },
+      { v: 'smooth', big: 'Smooth', small: 'Softer map, lighter effects. Best for phones' }]);
+    const m6body = el('div', { class: 'm6-body' });
+    const col1 = el('div', { class: 'm6-col pm-rows' }, '<div class="m6-sec">Your run</div>'), col2 = el('div', { class: 'm6-col pm-rows' }, '<div class="m6-sec">Picture and sound</div>');
+    const put = (c, id) => { const r = rowsById[id]; if (r) c.appendChild(r); };
+    ['mode', 'feel', 'wx'].forEach(id => put(col1, id));
+    [...panes.other.querySelectorAll('.pm-row')].forEach(r => { if (!['autoq', 'dir'].includes(r.dataset.id)) col1.appendChild(r); });   // crashes, braking line, anything new
+    ['traffic', 'ghost', 'straights'].forEach(id => put(col1, id));
+    col2.appendChild(gfxRow); ['snd-vol', 'snd-music', 'story'].forEach(id => put(col2, id));
+    m6body.append(col1, col2);
+    const rb = sRace.querySelector('.pm-race-body'); rb.replaceWith(m6body);
+    sRace.querySelector('.pm-crumb').textContent = 'Changes save on their own';
+    goEl.querySelector('span').textContent = 'Drive!';
+    sRace.appendChild(el('div', { class: 'm6-go' })).appendChild(goEl);
+    // controller buttons now live on How to play
+    if (panes.pad && panes.pad.querySelector('.pm-row')) { const pw = el('div', { class: 'm6-pad pm-rows' }, '<div class="m6-sec">Controller buttons</div>'); [...panes.pad.children].forEach(x => pw.appendChild(x)); sCtl.appendChild(pw); }
     const tabsNow = () => tabList.filter(T => !(pausing && T.id === 'key'));
     function setTab(id, quiet) {
       tab = id; tabsEl.querySelectorAll('.pm-tab').forEach(b => { b.classList.toggle('on', b.dataset.tab === id); b.setAttribute('aria-selected', b.dataset.tab === id); });
@@ -38815,7 +39105,7 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
     let going = false;
     function startDrive() {
       if (going) return;
-      if (!keyOk()) { blips.error(); showBanner('Map key needed', 'Paste your Google Map Tiles key first.'); tab = 'key'; show('settings', true); setTimeout(() => keyInput && keyInput.focus(), 30); return; }
+      if (!keyOk()) { blips.error(); showBanner('Map key needed', 'Paste your Google Map Tiles key first.'); return; }
       if (wantStory()) return playStory();
       launch();
     }
@@ -38877,7 +39167,7 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
       if (a === 'restart') { blips.select(); return pauseClick('restart'); }
       if (a === 'photo') { blips.select(); return pauseClick('photomode'); }
       if (a === 'music') { blips.change(); const M = window.PerthMusic; if (M) M.setOn(!M.on); paintMusic(); return; }
-      if (a === 'psettings') { if (tab === 'key') tab = tabList[0].id; show('settings'); return; }
+      if (a === 'psettings') { show('race'); return; }
       if (a === 'quit') return quitToMenu();
       if (screens[a]) { show(a); return; }
     }
@@ -39059,7 +39349,7 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
       const m = errEl ? errEl.textContent.trim() : ''; if (!m) return;
       const isKey = /key|AIza|refused/i.test(m) && !/quota/i.test(m);
       showBanner(/time ran out/i.test(m) ? "The moussaka's gone cold!" : 'Heads up', m); blips.error();
-      if (isKey) { tab = 'key'; keyDirty = false; show('settings', true); }
+      if (isKey) { keyDirty = false; }
       else if (cur === 'title') show('main', true);
     }
     if (errEl) new MutationObserver(onErr).observe(errEl, { childList: true, characterData: true, subtree: true });
@@ -42143,7 +42433,7 @@ const cardPad = (() => {
 })();
 
 /* PCARS */ const CARSEL = window.PerthCars && window.PerthCar ? window.PerthCars.create({ THREE, PerthCar: window.PerthCar, getC: () => C, handling: HANDLING, paint, swapCar, audio,
-  straights: () => STR, state: () => state }) : null;
+  straights: () => STR, state: () => state, timeBonus: s => { if (state === 'drive' && !FREE()) pausedMs += s * 1000; } }) : null;   // Tiguan: time off the clock
 window.__carsel = CARSEL;
 $('go').onclick = () => {
   const key = $('key').value.trim();
