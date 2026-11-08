@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9412502</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9413137</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -3127,7 +3127,7 @@ const KB = (() => {
       sf[k] = { y: 0, kerb: '' }; }
     // stirside (run feedback 12, 6 Nov): a narrow raised median (kerbed island under 3.2 m wide) is not a lane. A car riding along on top
     // of it or straddling it (Kostas at Stirling Hwy, 6.1 km to go) is eased off to the nearer side, about a car width per second; crossing it still works.
-    { const LL = v0kb > 3 && EXTRA.get(fi), L = LL && LL.find(x => x[3] !== 'wall' && x[1] - x[0] < 3.2 && x[2] > 0.08 && F.lat > x[0] - 0.9 && F.lat < x[1] + 0.9);
+    { const LL = v0kb > 3 && !window.__kerbProof && EXTRA.get(fi), L = LL && LL.find(x => x[3] !== 'wall' && x[1] - x[0] < 3.2 && x[2] > 0.08 && F.lat > x[0] - 0.9 && F.lat < x[1] + 0.9);
       if (L) { const mid = (L[0] + L[1]) / 2, s = F.lat < mid ? -1 : 1, nudge = Math.min(0.06, 1.9 * dt); C.x += F.r.x * s * nudge; C.z += F.r.y * s * nudge; C.vx *= 1 - 0.12 * dt; C.vz *= 1 - 0.12 * dt; window.__kbNudge = (window.__kbNudge || 0) + 1; } }
     const y = Math.max(0, (sf[0].y + sf[1].y) / 2);
     // jolts: compare with last step's heights per wheel line
@@ -3135,7 +3135,8 @@ const KB = (() => {
     // a wheel line crossing the middle of a kerb face (up or down) is one jolt, whatever the face slope
     if (prev && prev.fi != null && Math.abs(prev.fi - fi) < 5) for (let k = 0; k < 2; k++) { const y0 = prev.y[k], y1 = sf[k].y, type = sf[k].kerb || prev.k[k] || 'barrier';
       const up = y0 < 0.06 && y1 >= 0.06, down = y0 >= 0.06 && y1 < 0.06;
-      if ((up || down) && v > 1.5 && FEEL[type]) { window.__kbJ = (window.__kbJ || 0) + 1; const f = FEEL[type], ang = Math.min(1, vLat / Math.max(4, v));
+      if ((up || down) && v > 1.5 && FEEL[type] && window.__kerbProof) { window.__kbJ = (window.__kbJ || 0) + 1; window.__kbSoft = (window.__kbSoft || 0) + 1; C.y += FEEL[type][2] * 0.25 * Math.min(1, v / 15); C.pitch = (C.pitch || 0) - 0.004 * (up ? 1 : -1); }   // iX3 perk: it's an SUV
+      else if ((up || down) && v > 1.5 && FEEL[type]) { window.__kbJ = (window.__kbJ || 0) + 1; const f = FEEL[type], ang = Math.min(1, vLat / Math.max(4, v));
         if (up) { const lose = f[0] * (0.35 + ang) * Math.min(1, v / 12); C.vx *= 1 - lose; C.vz *= 1 - lose; }
         C.hit = Math.min(1, (C.hit || 0) + f[1] * (up ? 0.6 : 0.3) * Math.min(1, v / 20));
         C.y += f[2] * (up ? 1 : 0.4) * Math.min(1, v / 15); C.roll = (C.roll || 0) + (k ? 1 : -1) * 0.03 * (up ? 1 : -1); C.pitch = (C.pitch || 0) - 0.015 * (up ? 1 : -1); } }
@@ -36306,7 +36307,7 @@ await __LDstep(57);
       id: 'ix3', year: '2022', make: 'BMW', name: 'iX3', tag: 'Your new EV, bought through the business', line: 'Crash it? The accountant says claim it.',
       stats: { speed: 3, accel: 5, handling: 2, tough: 5 },
       special: { name: 'Battery boost', text: 'Boost is the battery. Braking recharges it.' },
-      gimmick: { name: 'Claim it', text: 'Shrugs off crashes that wreck the others.' },
+      gimmick: { name: 'Claim it', text: 'Shrugs off crashes, kerbs and median strips.' },
       paint: 0x4a4f57,
       finish: { metalness: 0.65, roughness: 0.3, clearcoat: 1 },
       engine: 'ev',
@@ -36567,7 +36568,8 @@ await __LDstep(57);
       }
       const S = env.straights && env.straights();
       if (S && S.T) { if (S.T.__baseTow == null) { S.T.__baseTow = S.T.towFill; S.T.__baseSpend = S.T.spendAccel; }
-        S.T.towFill = S.T.__baseTow * (st.id === 'nova' ? 0.5 : 1); S.T.spendAccel = S.T.__baseSpend * (st.id === 'ix3' ? 1.35 : 1); }
+        S.T.towFill = S.T.__baseTow * (st.id === 'nova' ? 0.5 : 1); S.T.spendAccel = S.T.__baseSpend * (st.id === 'ix3' ? 1.28 : 1); }
+      root.__kerbProof = st.id === 'ix3';   // iX3 perk: kerbs and medians don't upset it (perth-kerbs.js ride())
       runStart();
     }
 
@@ -36575,7 +36577,7 @@ await __LDstep(57);
     const R = { mati: 0, matiAt: 0, claims: 0, drift: 0, driftChip: false, popCool: 0, regenChip: 0, mum: 0, mumArmed: true, mumT: -99, t: 0 };
     const progressM = () => { try { const T = root.__trk && root.__trk(), C = env.getC(); return T && T[C.idx] ? T[C.idx].d : 0; } catch (e) { return 0; } };
     function runStart() {
-      R.mati = st.id === 'nova' ? 1 : 0; R.matiAt = 0; R.claims = 0; R.drift = 0; R.popCool = 0; R.mum = 0; R.mumArmed = true; R.mumT = -99; R.t = 0;
+      R.kerbChip = false; R.mati = st.id === 'nova' ? 1 : 0; R.matiAt = 0; R.claims = 0; R.drift = 0; R.popCool = 0; R.mum = 0; R.mumArmed = true; R.mumT = -99; R.t = 0;
       matiPill.hidden = st.id !== 'nova'; textEl.classList.remove('on'); paintHud();
     }
     function paintHud() {
@@ -36610,7 +36612,9 @@ await __LDstep(57);
         const sliding = Math.abs(C.drift || 0) > 0.22 && kmh > 40;
         if (sliding) { R.drift += dt; S.meter = S.meter + dt * 0.11; if (R.drift > 0.8 && !R.driftChip) { R.driftChip = true; chip('Rally blood', 'drifting fills boost', '#ffb44a', 1100); } }
         else { R.drift = 0; R.driftChip = false; }
-      } else if (st.id === 'ix3') {   // battery boost: the boost bar is the battery; braking (and gently, coasting) recharges it
+      } else if (st.id === 'ix3') {
+        if (!R.kerbChip && C.surf === 'kerb' && kmh > 20) { R.kerbChip = true; chip('SUV mode', "Kerbs? Medians? It's an SUV.", '#cfe4ff', 1500); }   // first kerb of the run
+        // battery boost: the boost bar is the battery; braking (and gently, coasting) recharges it
         if (!S.spending) {
           const brk = inp && inp.brk || 0, thr = inp && inp.thr || 0;
           if (kmh > 25 && C.gear !== 'R') { const g = brk * 0.075 + (thr < 0.05 && brk < 0.05 ? 0.012 : 0); if (g > 0) { S.meter = S.meter + g * dt; R.regenChip += brk * dt; if (R.regenChip > 1.2) { R.regenChip = -6; chip('Regen', 'braking charges the battery', '#7cc0ff', 900); } } }
