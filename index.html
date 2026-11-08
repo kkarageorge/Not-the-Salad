@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9575155</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9574884</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -40554,11 +40554,7 @@ body.np-turning #fairCorner{display:none!important}
     if (stuckT > 2) { const left = Math.max(0, 4 - stuckT); stuckEl.innerHTML = `Stuck? Back on the road in ${Math.ceil(left)}<small>or press R / Y any time</small>`; stuckEl.style.display = 'block'; stuckShown = true;
       if (stuckT >= 4 && typeof window.__resetToRoad === 'function') { window.__resetToRoad(); NP.stats.resets = (NP.stats.resets || 0) + 1; stuckT = 0; resetCool = 3; } }
     else if (stuckShown) { stuckEl.style.display = 'none'; stuckShown = false; }
-    // C: the orbit's tilt eases back after 1.5 s without look input
-    const F = window.__FLK; if (F && driving) {
-      if (F.drag || Math.abs(F.pitch - lastPitch) > 1e-4) pitchIdle = 0; else pitchIdle += dt;
-      if (pitchIdle > 1.5 && F.pitch) { F.pitch -= F.pitch * Math.min(1, dt * 3); if (Math.abs(F.pitch) < 0.003) F.pitch = 0; }
-      lastPitch = F.pitch; }
+    // (C, tilt spring-back, removed 8 Nov at Kostas's request: the orbit stays where you put it)
   }
   requestAnimationFrame(frame);
 })();
@@ -42574,7 +42570,7 @@ const TXT = { fwd: { from: 'Surrey Rd, Rivervale', to: '7 Columba Place', toSub:
   // Camera effects: speed FOV, acceleration kick, shake, lean, look into the slide
   // ------------------------------------------------------------------
   function createCameraFX(opts) {
-    const o = Object.assign({ baseFov: 60, bonnetFov: 70, speedFov: 10, accelFov: 0.35, shake: 1, boostFov: 4 }, opts || {});
+    const o = Object.assign({ baseFov: 60, bonnetFov: 70, speedFov: 15, accelFov: 0.35, shake: 1, boostFov: 7 }, opts || {});
     let t = 0, boostK = 0, fovKick = 0, hitShake = 0, lastHit = 0, look = 0, roll = 0;
     // cheap smooth noise: sum of incommensurate sines
     const n1 = x => Math.sin(x * 1.0) * 0.5 + Math.sin(x * 2.31 + 1.3) * 0.3 + Math.sin(x * 5.17 + 0.4) * 0.2;
@@ -42595,7 +42591,7 @@ const TXT = { fwd: { from: 'Surrey Rd, Rivervale', to: '7 Columba Place', toSub:
         lastHit = C.hit || 0; hitShake = Math.max(0, hitShake - dt * 3);
         const speedAmp = Math.max(0, (kmh - 70) / 200) ** 1.5 * 0.05;
         const slideAmp = (C.slip || 0) * Math.min(1, kmh / 80) * 0.025;
-        const amp = (speedAmp + slideAmp + boostK * 0.01) * (bonnet ? 0.6 : 1) * o.shake;
+        const amp = (speedAmp + slideAmp + boostK * 0.02) * (bonnet ? 0.6 : 1) * o.shake;
         const k = hitShake * 0.18 * o.shake;
         const f = bonnet ? 1.6 : 1;
         const ox = n1(t * 17 * f) * amp + n1(t * 41 + 7) * k;
