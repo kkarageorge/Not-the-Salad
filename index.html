@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9498708</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9499094</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -30111,9 +30111,9 @@ await __LDstep(44);
   const tex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d'); g.clearRect(0, 0, 256, 64);
     for (let i = 0; i < 4; i++) { const x = i * 64; g.fillStyle = 'rgba(255,190,40,0.95)'; g.beginPath(); g.moveTo(x + 10, 6); g.lineTo(x + 34, 6); g.lineTo(x + 56, 32); g.lineTo(x + 34, 58); g.lineTo(x + 10, 58); g.lineTo(x + 32, 32); g.closePath(); g.fill(); }
     const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t; })();
-  const N = 14, mk = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(N * 2 * 3), 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(N * 2 * 2), 2));
+  const N = 14, mk = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(N * 2 * 3), 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(N * 2 * 2), 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(N * 2 * 4).fill(1), 4));
       const idx = []; for (let i = 0; i < N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx);
-      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: tex.clone(), transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })); m.material.map.needsUpdate = true; m.frustumCulled = false; m.renderOrder = 5; scene.add(m); return m; };
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: tex.clone(), vertexColors: true, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })); m.material.map.needsUpdate = true; m.frustumCulled = false; m.renderOrder = 5; scene.add(m); return m; };
   const W = [mk(), mk()];
   window.__arrowWall = (C, now) => {
     const T = window.__trk ? window.__trk() : road; if (C.wall == null || !T.length) return;
@@ -30125,11 +30125,12 @@ await __LDstep(44);
       let target = tHit < 1.4 ? Math.min(0.9, (1.4 - tHit) / 1.0) : 0; if (gap < 1.2) target = Math.max(target, 0.6); if (bend > 0.2 && gap < 7) target = Math.max(target, 0.1);
       m.material.opacity += (target - m.material.opacity) * (target > m.material.opacity ? 0.35 : 0.12); m.visible = m.material.opacity > 0.02;
       if (!m.visible) continue;
-      const pos = m.geometry.attributes.position.array, uv = m.geometry.attributes.uv.array, j0 = Math.max(0, Math.min(T.length - N, C.idx - 5));
-      const dirSign = (C.vx * T[C.idx].t.x + C.vz * T[C.idx].t.y) >= 0 ? -1 : 1;     // chevrons point back towards the road ahead
+      const pos = m.geometry.attributes.position.array, uv = m.geometry.attributes.uv.array, col = m.geometry.attributes.color.array, cp = camera.position, j0 = Math.max(0, Math.min(T.length - N, C.idx - 5));
+      const dirSign = (C.vx * T[C.idx].t.x + C.vz * T[C.idx].t.y) >= 0 ? 1 : -1;     // chevrons point the way you are driving (both walls)
       for (let i = 0; i < N; i++) { const r = T[j0 + i], wl = r.w / 2 + GUTTER + (r.mw ? 0.1 : KERB_W + PATH_W) - 1.0 + 0.9 + (s > 0 ? r.xr || 0 : r.xl || 0) + ((s > 0 ? r.xwR : r.xwL) || 0), x = r.p.x + r.r.x * s * wl, z = r.p.y + r.r.y * s * wl, y0 = r.h + 0.1;
-        pos.set([x, y0, z, x, y0 + 1.3, z], i * 6); const u = (r.d / 2.6) * dirSign * s + now * 0.0006; uv.set([u, 0, u, 1], i * 4); }
-      m.geometry.attributes.position.needsUpdate = true; m.geometry.attributes.uv.needsUpdate = true; m.geometry.computeBoundingSphere();
+        pos.set([x, y0, z, x, y0 + 0.85, z], i * 6); const u = (r.d / 2.6) * dirSign - now * 0.0006; uv.set([u, 0, u, 1], i * 4);
+        const a = Math.min(1, Math.max(0, (Math.hypot(x - cp.x, z - cp.z) - 2) / 4), i / 2, (N - 1 - i) / 2); col[i * 8 + 3] = a; col[i * 8 + 7] = a; }
+      m.geometry.attributes.position.needsUpdate = true; m.geometry.attributes.uv.needsUpdate = true; m.geometry.attributes.color.needsUpdate = true; m.geometry.computeBoundingSphere();
     }
   };
 }
