@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9575213</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9578810</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -2258,6 +2258,26 @@ registerProcessor('perth-v8', PerthV8);
       return fn(t0, pan, dist);
     }
 
+    // ---------- soundtune (8 Nov): kookaburras you can actually hear. A close laugh, a second bird answers from the other side.
+    const KOOKA_ZONES = { 'Mounts Bay Rd (Kings Park)': 1, 'Old Swan Brewery': 1, 'Peppermint Grove': 1, 'Columba Place': 1 };
+    const kooka = { last: {}, run: 0, startDone: false, any: -1e9 };
+    function kookaLaugh(t0) {
+      const list = bank.kookaburra; if (!list || !list.length) return false;
+      const longest = list.reduce((a, b) => (b.duration > a.duration ? b : a));
+      const pan = (R() < 0.5 ? -1 : 1) * rr(0.35, 0.7);
+      const play = (buf, t, p, lvl) => { const g = voice(birdBus, p, 0.08), s = ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rr(0.97, 1.03); s.connect(gainNode(lvl, g)); s.start(t); };
+      play(longest, t0, pan, 0.42);
+      play(list.length > 1 ? pick(list) : longest, t0 + rr(1.2, 2.2), -pan * 0.8, 0.3);   // the answer
+      return true;
+    }
+    function kookaSpot(t, v, dt) {
+      if (sceneName !== 'drive') return;
+      kooka.run += dt;
+      if (!kooka.startDone && kooka.run > 7 && v > 5) { kooka.startDone = kookaLaugh(t + 0.05); if (kooka.startDone) kooka.any = t; }   // early on the run, near home
+      const z = S.zone; if (!z || !KOOKA_ZONES[z]) return;
+      if (t - (kooka.last[z] || -1e9) < 150 || t - kooka.any < 45) return;
+      if (kookaLaugh(t + 0.05)) kooka.last[z] = kooka.any = t;
+    }
     // ---------- per-frame update
     function update(a, thr, slip, kmh, gear) {
       if (!ready) return;
@@ -2344,9 +2364,10 @@ registerProcessor('perth-v8', PerthV8);
       set(beds.traffic.g.gain, L('traffic') * (beds.traffic.real ? 0.45 : 0.13) * (0.7 + 0.3 * Math.sin(S.t * 0.27 + 1)), 1.2);
       // water: a slow lapping rhythm
       const lap = 0.55 + 0.45 * Math.sin(S.t * 1.7 + Math.sin(S.t * 0.6) * 2);
-      set(beds.river.g.gain, beds.river.real ? L('river') * 0.9 : L('river') * 0.2 * lap, 0.2); if (!beds.riverHi.off) set(beds.riverHi.g.gain, L('river') * 0.03 * lap * lap, 0.15);
+      set(beds.river.g.gain, beds.river.real ? L('river') * 0.35 : L('river') * 0.08 * lap, 0.2); if (!beds.riverHi.off) set(beds.riverHi.g.gain, L('river') * 0.012 * lap * lap, 0.15);   /* soundtune: water quieter */
       set(beds.leaves.g.gain, (L('bush') * 0.022 + L('suburb') * 0.006) * (beds.leaves.real ? 18 : 1) * (0.6 + 0.4 * Math.sin(S.t * 0.33)), 0.8);
       set(beds.suburbAir.g.gain, L('suburb') * 0.03, 1.2);
+      kookaSpot(t, v, dt);   /* soundtune */
       for (const layer in EVENTS) {
         const w = L(layer); if (w < 0.03) continue;
         if ((busyUntil[layer] || 0) > t) continue;
@@ -2358,7 +2379,7 @@ registerProcessor('perth-v8', PerthV8);
     // 'results' keeps the street and the finish fanfare but winds the engine, tyres and wind down to nothing over ~2 s
     let sceneName = 'drive', sceneTimer = 0;
     function scene(name) {
-      sceneName = name; paused = name === 'pause' || name === 'menu';
+      sceneName = name; paused = name === 'pause' || name === 'menu'; if (name === 'menu' || name === 'results') { kooka.run = 0; kooka.startDone = false; kooka.last = {}; kooka.any = -1e9; }   /* soundtune: fresh kookaburras each run */
       if (!ctx || !master) return;
       clearTimeout(sceneTimer);
       const ramp = (p, v, tc) => { const t = now(); p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); p.setTargetAtTime(v, t, tc); };
@@ -2421,8 +2442,8 @@ registerProcessor('perth-v8', PerthV8);
   root.PerthAudio = { create, ZONES, LAYERS, zoneAt: (lat, lon) => zoneMix(z => metres(lat, lon, z.lat, z.lon)), version: '1.0' };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDnet&&__LDnet(2788789)</script><script>window.__LDSTAGES=[["Turning on the sun",84],["Turning on the sun",586],["Getting things ready",5],["Laying the roads",5],["Laying the roads",39],["Putting up the houses",30],["Planting the trees and lawns",7],["Laying the roads",45],["Getting things ready",81],["Laying the roads",747],["Kerbs, medians and the river wall",337],["Tidying up Google’s map",30],["Kerbs, medians and the river wall",5],["Getting things ready",30],["Building the landmarks",3450],["Planting the trees and lawns",614],["Planting the trees and lawns",126],["Tidying up Google’s map",5],["Putting up the houses",5],["Planting the trees and lawns",19],["Putting up the houses",134],["Planting the trees and lawns",84],["Laying the roads",665],["Laying the roads",5],["Laying the roads",5],["Laying the roads",37],["Laying the roads",109],["Planting the trees and lawns",664],["Planting the trees and lawns",5],["Planting the trees and lawns",51],["Tidying up Google’s map",13],["Tidying up Google’s map",89],["Laying the roads",8],["Building the landmarks",5],["Getting things ready",42],["Putting up the houses",5],["Putting up the houses",5],["Putting up the houses",10],["Putting up the houses",5],["Putting up the houses",5],["Putting up the houses",6],["Putting up the houses",5],["Planting the trees and lawns",218],["Planting the trees and lawns",318],["Signs, bins and street lights",6],["Planting the trees and lawns",5],["Building the landmarks",140],["Building the landmarks",95],["Building the landmarks",5],["Planting the trees and lawns",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Laying the train lines",5],["Bringing out the traffic",5],["Planting the trees and lawns",5],["Bringing out the traffic",5],["Washing your car",30],["Bringing out the traffic",30],["Getting things ready",5],["Wiring the street lights",5],["Turning on the sun",5],["Turning on the sun",5],["Turning on the sun",5],["Turning on the sun",5],["Wiring the street lights",1016],["Washing your car",5],["Washing your car",36],["Laying the roads",5],["Washing your car",5],["Washing your car",5],["Getting things ready",5],["Getting things ready",5],["Getting things ready",5],["Turning on the sun",5],["Tuning the exhaust",5],["Setting the table",5],["Bringing out the traffic",260],["Setting the table",22],["Washing your car",5],["Laying the train lines",5],["Bringing out the traffic",5],["Setting the table",5],["Washing your car",5],["Planting the trees and lawns",30],["Setting the table",22],["Getting things ready",5],["Washing your car",5],["Packing it all up",417],["Getting things ready",48]];window.__LDstep=window.__LDstep||function(){};window.__LDsub=window.__LDsub||function(){};</script>
-<script>window.__LDnet&&__LDnet(2791551)</script><script type="module">
+<script>window.__LDnet&&__LDnet(2790446)</script><script>window.__LDSTAGES=[["Turning on the sun",84],["Turning on the sun",586],["Getting things ready",5],["Laying the roads",5],["Laying the roads",39],["Putting up the houses",30],["Planting the trees and lawns",7],["Laying the roads",45],["Getting things ready",81],["Laying the roads",747],["Kerbs, medians and the river wall",337],["Tidying up Google’s map",30],["Kerbs, medians and the river wall",5],["Getting things ready",30],["Building the landmarks",3450],["Planting the trees and lawns",614],["Planting the trees and lawns",126],["Tidying up Google’s map",5],["Putting up the houses",5],["Planting the trees and lawns",19],["Putting up the houses",134],["Planting the trees and lawns",84],["Laying the roads",665],["Laying the roads",5],["Laying the roads",5],["Laying the roads",37],["Laying the roads",109],["Planting the trees and lawns",664],["Planting the trees and lawns",5],["Planting the trees and lawns",51],["Tidying up Google’s map",13],["Tidying up Google’s map",89],["Laying the roads",8],["Building the landmarks",5],["Getting things ready",42],["Putting up the houses",5],["Putting up the houses",5],["Putting up the houses",10],["Putting up the houses",5],["Putting up the houses",5],["Putting up the houses",6],["Putting up the houses",5],["Planting the trees and lawns",218],["Planting the trees and lawns",318],["Signs, bins and street lights",6],["Planting the trees and lawns",5],["Building the landmarks",140],["Building the landmarks",95],["Building the landmarks",5],["Planting the trees and lawns",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Bringing out the traffic",5],["Laying the train lines",5],["Bringing out the traffic",5],["Planting the trees and lawns",5],["Bringing out the traffic",5],["Washing your car",30],["Bringing out the traffic",30],["Getting things ready",5],["Wiring the street lights",5],["Turning on the sun",5],["Turning on the sun",5],["Turning on the sun",5],["Turning on the sun",5],["Wiring the street lights",1016],["Washing your car",5],["Washing your car",36],["Laying the roads",5],["Washing your car",5],["Washing your car",5],["Getting things ready",5],["Getting things ready",5],["Getting things ready",5],["Turning on the sun",5],["Tuning the exhaust",5],["Setting the table",5],["Bringing out the traffic",260],["Setting the table",22],["Washing your car",5],["Laying the train lines",5],["Bringing out the traffic",5],["Setting the table",5],["Washing your car",5],["Planting the trees and lawns",30],["Setting the table",22],["Getting things ready",5],["Washing your car",5],["Packing it all up",417],["Getting things ready",48]];window.__LDstep=window.__LDstep||function(){};window.__LDsub=window.__LDsub||function(){};</script>
+<script>window.__LDnet&&__LDnet(2793208)</script><script type="module">
 import * as THREE from 'three';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -36925,6 +36946,7 @@ await __LDstep(59);
       info = info || {}; const C = info.C || o.C; if (!C) return; o.C = C;
       st.time += dt; ensureScene();
       const inp = info.inp || {};
+      if (drs) { drsA += (((C.straightsBoost || 0) > 0.3 ? 1 : 0) - drsA) * Math.min(1, dt * 10); drs.rotation.x = drsA * 0.85; }
       const BO = root.__burnout, busy = !!(BO && BO.busy && BO.busy());
       // ---- detect impacts from the game's own collision response (velocity jump + C.hit rising)
       const hit = C.hit || 0;
@@ -37114,6 +37136,7 @@ await __LDstep(59);
       l.g = g; l.parts = [x, ...glow]; l.at = main ? main.position.clone() : cen.clone();
       if (l.broken) for (const p of l.parts) p.material = brokenM;
     }
+    let drs = null, drsA = 0;   // ZOE-F1b: the F1's rear-wing flap (DRS) opens while boosting
     function applySkin(S) {
       if (!S || skinned || disposed) return;
       const m = S.meta;
@@ -37157,6 +37180,7 @@ await __LDstep(59);
         const bb = x.geometry.boundingBox, z = b.front ? bb.max.z : bb.min.z; b.plan = [[bb.min.x + 0.05, z], [bb.max.x - 0.05, z]];
         if (b.lost || b.hang) setHangPivot(b);
       }
+      { const dg = mk('drs'); if (dg) { const bb = dg.geometry.boundingBox; drs = new THREE.Group(); drs.name = 'drs'; drs.position.set(0, bb.max.y, bb.max.z); dg.position.copy(drs.position).negate(); drs.add(dg); upper.add(drs); } }   // hinge at the trailing edge
       // mirrors snap off whole
       for (const mr of mirrors) { const x = mk(mr.side < 0 ? 'mirrorL' : 'mirrorR'); if (!x) continue; const c = x.geometry.boundingBox.getCenter(new V3()); mr.g.position.copy(c); x.position.copy(c).negate(); mr.g.add(x); }
       // lamps: one mesh per lamp so a hit breaks just that one; brake / tail glow comes from the shared lamp materials
@@ -39197,6 +39221,20 @@ body #pcsel .pc-hint{color:#5d6b7c}
 @media (max-height:500px) and (min-aspect-ratio:1/1){#loading.m5 .m5-logo{display:none}}
 /* the iX3's "Mum texts" card parks just above the screen; its edge and shadow peeked in at the top of the menu */
 body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.2,.9,.3,1.2),visibility 0s .35s}
+
+/* 8 Nov (Kostas: "On a controller, the menu button that is selected is unclear, because the play button is yellow").
+   When something else is selected, the yellow Drive / Go buttons fade to a quiet cream so they no longer look picked,
+   and whatever IS selected gets a pulsing yellow ring. */
+@keyframes pmPadRing{0%,100%{outline-color:var(--sun);outline-offset:3px}50%{outline-color:#fff3c4;outline-offset:6px}}
+#setup.pm:has(.sel:not(.pm-cta):not(.pm-go)) .pm-cta:not(.sel),
+#setup.pm:has(.sel:not(.pm-cta):not(.pm-go)) .pm-go:not(.sel){background:#efe6cf;color:#6b6250;box-shadow:none;transform:none}
+#setup.pm:has(.sel:not(.pm-cta):not(.pm-go)) .pm-cta:not(.sel) small{color:#8a816c}
+#setup.pm:has(.sel:not(.pm-cta):not(.pm-go)) .pm-cta:not(.sel) .arr{background:#cfc5ab;color:#efe6cf}
+#setup.pm .pm-cta.sel,#setup.pm .pm-go.sel,#setup.pm .pm-item.sel,#setup.pm .pm-row.sel,#setup.pm .pm-btn.sel,#setup.pm .pm-link.sel{outline:4px solid var(--sun);outline-offset:3px;animation:pmPadRing 1.1s ease-in-out infinite}
+#setup.pm .pm-cta.sel,#setup.pm .pm-go.sel{outline-color:var(--ink);animation:none;outline-offset:4px}
+@keyframes pmPadIn{0%,100%{outline-color:var(--sun)}50%{outline-color:#fff3c4}}
+#setup.pm .pm-item.sel,#setup.pm .pm-row.sel{outline-offset:-4px;animation-name:pmPadIn}   /* inside the box: the row list scrolls and would clip an outer ring */
+@media (prefers-reduced-motion:reduce){#setup.pm .sel{animation:none!important}}
 
 .pm-chip[hidden]{display:none}
 .pm-main{justify-content:center}
