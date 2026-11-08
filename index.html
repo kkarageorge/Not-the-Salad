@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9499094</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9504696</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -31653,6 +31653,7 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
 
   function onFinish(res, X) {
     if (!ON || !isFwd() || !res || res.valid === false || !S.tokenP) { S.post = null; return; }
+    try { if (window.__carsel && window.__carsel.id === 'f1') { S.post = null; return; } } catch {}   // ZOE-F1: easy-mode times stay off the world board
     const rec = X.lastRec; if (!rec) return;
     const st = rec.stats();
     const ms = Math.round(res.time * 1000);
@@ -35417,6 +35418,7 @@ await __LDstep(57);
       return { id: 'nova', height: 1.37, box: [0.89, 0.58, 2.0], boxC: 0.58, eye: 1.08, mirrorT: 0.31, handles: [0.50, 0.76], shut: [[0.29, 1, 7], [0.553, 1, 7], [0.79, 1, 7]],
         rimR: 0.17, tyreW: 0.112, engY: -0.06, cam: 0x9aa0a6, lean: 1.7, glass: 0x3c4853 };
     },
+    f1: () => { const m = MODELS.lancer(); L = 5.53; Z0 = -L / 2; AXLE_F = Z0 + 1.19; AXLE_R = AXLE_F + 3.6; TRACK_F = 0.80; TRACK_R = 0.77; WR = 0.325; ARCHES = [[AXLE_F, 0.40], [AXLE_R, 0.40]]; return Object.assign(m, { id: 'f1', height: 1.0, box: [0.9, 0.45, 2.7], eye: 0.95 }); },   // ZOE-F1
     tiguan: () => { const m = MODELS.ix3(); L = 4.45; Z0 = -L / 2; AXLE_F = Z0 + 0.87; AXLE_R = AXLE_F + 2.681; TRACK_F = TRACK_R = 0.80; WR = 0.363; ARCHES = [[AXLE_F, 0.46], [AXLE_R, 0.46]]; return Object.assign(m, { id: 'tiguan', height: 1.66, box: [0.95, 0.76, 2.22] }); },
     ix3: () => {
       L = 4.73; Z0 = -L / 2; AXLE_F = Z0 + 0.875; AXLE_R = AXLE_F + 2.864; TRACK_F = TRACK_R = 0.81; WR = 0.37;
@@ -35552,6 +35554,7 @@ await __LDstep(57);
     lancer: '"Mitsubishi Lancer Sedan 2009" by Nieve5677 (Sketchfab, CC BY 4.0)',
     ix3: '"BMW iX3" by MattDoesBlender (Sketchfab, CC BY 4.0)',
     tiguan: '"Volkswagen Tiguan R-Line" by niev (Sketchfab, CC BY 4.0)',
+    f1: '"F1 2021 McLaren MCL35M" by excalibur (Sketchfab, CC BY 4.0), repainted with no livery',
   };
   function skinBase() { return root.PERTH_CAR_SKINS != null ? root.PERTH_CAR_SKINS : 'cars/'; }
   function loadSkin(THREE, id) {
@@ -36543,7 +36546,7 @@ await __LDstep(57);
         paint, trim, glass, chrome: chromeM, head: headM, fog: headM, headIn: headChromeM, tail: tailM, rev: revM, amber: amberM,
         tailIn: new THREE.MeshStandardMaterial({ color: 0x3a0608, roughness: 0.3, metalness: 0.2 }),
         plate: new THREE.MeshStandardMaterial({ color: 0xe6e2d2, roughness: 0.5 }),
-        bumper: MD.id === 'nova' ? bumpGreyM : trim, accent: accentBlueM,
+        bumper: MD.id === 'nova' ? bumpGreyM : trim, accent: accentBlueM, white: new THREE.MeshPhysicalMaterial({ color: 0xf6f3f4, roughness: 0.3, clearcoat: 1 }),
         under: new THREE.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.8, metalness: 0.3 }),
         tyre: tyreM, caliper: caliperM,
         rim: new THREE.MeshStandardMaterial({ color: 0xb9bdc2, metalness: 0.85, roughness: 0.28 }),
@@ -36581,6 +36584,8 @@ await __LDstep(57);
       }
       glows.head.forEach((s, i) => { const l = lamps.head[i]; if (l) s.position.copy(l.at).add(new V3(0, 0, -0.08)); });
       glows.tail.forEach((s, i) => { const l = lamps.tail[i]; if (l) s.position.copy(l.at).add(new V3(0, 0, 0.05)); });
+      if (!S.parts.headL && !S.parts.headR) for (const s of glows.head) upper.remove(s);   // a model with no lamps (the F1): no floating glows
+      if (!S.parts.tailL && !S.parts.tailR) for (const s of glows.tail) upper.remove(s);
       // wheels: the model's own wheel, at the model's own axles and track
       const wg = S.parts.wheel;
       if (wg) for (const w of wheels) {
@@ -36694,8 +36699,19 @@ await __LDstep(57);
         gears: [3.4, 2.75, 1.65, 1.06, 0.84, 0.86, 0.69], finalDrive: 4.47, dragArea: P.dragArea * 1.12, brakeG: P.brakeG * 0.97, steerLatAcc: P.steerLatAcc * 0.9, maxLock: 0.56,
         muFront: P.muFront - 0.05, muRear: P.muRear - 0.04, powerOversteer: P.powerOversteer * 0.5 }),
     },
+    f1: {
+      id: 'f1', year: "Zoe's", make: '', name: 'Pink F1', tag: 'Easy mode. It drives itself.', line: 'Pink, fast and it never crashes. Hold on, Zoe!',
+      stats: { speed: 3, accel: 3, handling: 5, tough: 5 },
+      special: { name: 'Easy mode', text: 'Goes, stops and turns by itself. Steer to move across the road.' },
+      gimmick: { name: "Can't crash", text: 'Bounces off everything. No wrecks.' },
+      paint: 0xff4fa3,
+      finish: { metalness: 0.25, roughness: 0.28, clearcoat: 1 },
+      engine: null,
+      handling: P => ({ mass: 1000, cgToFront: 1.9, cgToRear: 1.7, cgHeight: 0.32, wheelRadius: 0.33, inertiaScale: P.inertiaScale * 0.9,
+        muFront: P.muFront + 0.15, muRear: P.muRear + 0.18, brakeG: P.brakeG * 1.2, steerLatAcc: P.steerLatAcc * 1.15, powerOversteer: P.powerOversteer * 0.3 }),
+    },
   };
-  const ORDER = ['nova', 'lancer', 'ix3', 'tiguan'];
+  const ORDER = ['nova', 'lancer', 'ix3', 'tiguan', 'f1'];   // ZOE-F1
   if (typeof module !== 'undefined' && module.exports) module.exports = { CARS, ORDER };
   if (!root.document) return;
 
@@ -36725,6 +36741,7 @@ await __LDstep(57);
 #pcsel .pc-tab b{display:block;font:700 18px/1.05 "Barlow Condensed",sans-serif;text-transform:uppercase}
 #pcsel .pc-tab small{color:#bfae9a;font-size:12px}
 #pcsel .pc-tab.on{border-color:#ffb44a;background:rgba(255,180,74,.14)}
+body #pcsel .pc-tabs{gap:6px}body #pcsel .pc-tabs .pc-tab{min-width:0;padding:7px 5px}body #pcsel .pc-tabs .pc-tab b{font-size:14px;letter-spacing:-.2px}body #pcsel .pc-tabs .pc-tab small{font-size:11px}
 #pcsel .pc-name{margin:18px 0 0;font:800 clamp(26px,3vw,38px)/1 "Barlow Condensed",sans-serif;text-transform:uppercase}
 #pcsel .pc-name small{display:block;font:500 15px/1.3 "Barlow",sans-serif;text-transform:none;color:#ffb44a;margin-top:3px}
 #pcsel .pc-line{color:#d9cbb9;margin:8px 0 4px;font-size:15px;font-style:italic}
@@ -36803,7 +36820,7 @@ await __LDstep(57);
     document.body.appendChild(root_);
     const $q = s => root_.querySelector(s);
     let canvas = $q('canvas'); /* menufix */
-    const PLATES = { nova: 'NOVA 92', lancer: 'LOUD 09', ix3: 'CLAIM IT', tiguan: 'MUMS CAR' };
+    const PLATES = { nova: 'NOVA 92', lancer: 'LOUD 09', ix3: 'CLAIM IT', tiguan: 'MUMS CAR', f1: 'ZOE 1' };
     function render() {
       const c = cur();
       root_.querySelectorAll('.pc-tab').forEach(b => b.classList.toggle('on', b.dataset.id === st.id));
@@ -36952,10 +36969,10 @@ await __LDstep(57);
     }
 
     // ---------------- specials and gimmicks ----------------
-    const R = { food: [], tough: 0, mati: 0, matiAt: 0, claims: 0, drift: 0, driftChip: false, popCool: 0, regenChip: 0, mum: 0, mumArmed: true, mumT: -99, t: 0 };
+    const R = { boingT: -99, ezChip: false, food: [], tough: 0, mati: 0, matiAt: 0, claims: 0, drift: 0, driftChip: false, popCool: 0, regenChip: 0, mum: 0, mumArmed: true, mumT: -99, t: 0 };
     const progressM = () => { try { const T = root.__trk && root.__trk(), C = env.getC(); return T && T[C.idx] ? T[C.idx].d : 0; } catch (e) { return 0; } };
     function runStart() {
-      R.food = []; R.tough = 0; R.kerbChip = false; R.mati = st.id === 'nova' ? 1 : 0; R.matiAt = 0; R.claims = 0; R.drift = 0; R.popCool = 0; R.mum = 0; R.mumArmed = true; R.mumT = -99; R.t = 0;
+      R.boingT = -99; R.ezChip = false; EZ.slowT = 0; R.food = []; R.tough = 0; R.kerbChip = false; R.mati = st.id === 'nova' ? 1 : 0; R.matiAt = 0; R.claims = 0; R.drift = 0; R.popCool = 0; R.mum = 0; R.mumArmed = true; R.mumT = -99; R.t = 0;
       matiPill.hidden = st.id !== 'nova'; textEl.classList.remove('on'); paintHud();
     }
     function paintHud() {
@@ -36963,6 +36980,7 @@ await __LDstep(57);
     }
     // Burnout crash hook (perth-burnout.js asks before it starts a wreck): return true to cancel the crash
     root.__carShield = (dv, kind) => {
+      if (st.id === 'f1') { if (R.t - R.boingT > 4) { R.boingT = R.t; chip('Boing!', "Zoe's car can't crash", '#ff9ad5', 1200); } return true; }
       if (st.id === 'tiguan') { const lim = kind === 'car' ? 10.5 : 18; if (dv < lim * 1.8) { R.tough++; chip('Not a scratch', R.tough > 1 ? 'Built like Mum' : "Mum's car. Built like Mum.", '#f3ece2', 1400); return true; } return false; }
       if (st.id === 'ix3') { const lim = kind === 'car' ? 10.5 : 18; if (dv < lim * 1.3) { R.claims++; chip('Claim it!', R.claims > 1 ? 'The accountant will sort it. Again.' : 'The accountant will sort it', '#cfe4ff', 1400); return true; } return false; }
       if (st.id === 'nova' && R.mati > 0) {
@@ -36987,6 +37005,7 @@ await __LDstep(57);
       R.t += dt;
       if (st.id === 'nova' && !R.mati && progressM() - R.matiAt > 4000) { R.mati = 1; paintHud(); chip('Mati recharged', 'Yiayia is watching over you', '#8cc4ff', 1400); }
       if (st.id === 'tiguan') foodAtHome(C, kmh);
+      if (st.id === 'f1' && !R.ezChip && R.t > 0.6) { R.ezChip = true; chip('Easy mode', 'It drives itself. Steer to move across the road.', '#ff9ad5', 3000); }
       if (!S || !S.T) return;
       if (st.id === 'lancer') {   // rally blood: drifting fills boost
         const sliding = Math.abs(C.drift || 0) > 0.22 && kmh > 40;
@@ -37016,7 +37035,40 @@ await __LDstep(57);
         if (Math.hypot(C.x - f[0], C.z - f[1]) < 70 && kmh > 30) { R.food.push(i); if (env.timeBonus) env.timeBonus(FOOD_S);
           chip(FOOD_LINES[(R.food.length - 1) % FOOD_LINES.length], 'Drove past ' + f[2] + ' &middot; -' + FOOD_S.toFixed(1) + ' s', '#ffd27a', 1700); } }
     }
+    // ---- Zoe's easy mode (F1): like a kart game's smart steering + auto-accelerate. The car keeps to the road, slows for bends and
+    // goes again by itself; the stick / arrows move it across the road (left lane when let go), the brake still works.
+    const EZ = { T: null, vmax: null, off: null, slowT: 0 }, EZ_TOP = 95 / 3.6, EZK = root.__EZK || (root.__EZK = { look0: 5, lookV: 0.35, gain: 3.2, margin: 1.6, narrow: 0.5, wide: 0.7, aLat: 0.35 });
+    function assist(inp, dt) {
+      if (st.id !== 'f1' || !inp) return;
+      const T = root.__trk && root.__trk(), C = env.getC(); if (!T || !C || !T[C.idx]) return;
+      const N = T.length, aLat = EZK.aLat * 9.81, aBrk = 0.45 * 9.81;
+      if (EZ.T !== T || EZ.a !== EZK.aLat) {   // safe speed for every point of the road, from how sharp it bends
+        EZ.T = T; EZ.a = EZK.aLat; EZ.off = null; EZ.vmax = new Float32Array(N);
+        const hd = i => { const a = T[Math.max(0, i - 3)].p, b = T[Math.min(N - 1, i + 3)].p; return Math.atan2(b.x - a.x, b.y - a.y); };
+        for (let i = 0; i < N; i++) { const i0 = Math.max(0, i - 6), i1 = Math.min(N - 1, i + 6); let dh = hd(i1) - hd(i0); while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
+          const ds = Math.max(1, T[i1].d - T[i0].d), k = Math.abs(dh) / ds; EZ.vmax[i] = Math.min(EZ_TOP, Math.sqrt(aLat / Math.max(k, 1e-4))); }
+      }
+      const i = C.idx, v = Math.hypot(C.vx, C.vz), d0 = T[i].d;
+      let vt = EZ_TOP; for (let j = i; j < N && T[j].d - d0 < 200; j += 2) vt = Math.min(vt, Math.sqrt(EZ.vmax[j] * EZ.vmax[j] + 2 * aBrk * (T[j].d - d0)));
+      // where across the road: the left lane, or towards the side the player is steering
+      const ps = clamp(inp.steer || 0, -1, 1);
+      let j = i; const look = EZK.look0 + v * EZK.lookV; while (j < N - 1 && T[j].d - d0 < look) j++;
+      const r = T[j], half = Math.max(0.3, r.w / 2 - EZK.margin), lw = r.w / Math.max(1, r.lanes || 1), base = clamp(-(r.w / 2 - lw / 2), -half, half) * (r.w < 8 ? EZK.narrow : EZK.wide);
+      const want = ps >= 0 ? base + (half - base) * ps : base + (-half - base) * -ps;
+      if (EZ.off == null) EZ.off = base; EZ.off += (want - EZ.off) * Math.min(1, dt * 1.8);
+      const tx = r.p.x + r.r.x * EZ.off, tz = r.p.y + r.r.y * EZ.off;
+      const dx = tx - C.x, dz = tz - C.z, fx = -Math.sin(C.yaw), fz = -Math.cos(C.yaw), rx = Math.cos(C.yaw), rz = -Math.sin(C.yaw);
+      const ang = Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz);
+      const userBrk = inp.brk || 0;
+      inp.steer = clamp(ang * EZK.gain, -1, 1); inp.analog = true; inp.hand = 0;
+      inp.thr = userBrk > 0.1 ? 0 : v < vt - 0.5 ? 1 : v < vt ? 0.4 : 0;
+      inp.brk = Math.max(userBrk, v > vt + 1.5 ? Math.min(1, (v - vt) / 6) : 0);
+      // stuck against something for a while (and not braking on purpose): back on the road
+      EZ.slowT = v < 1.5 && userBrk < 0.1 ? EZ.slowT + dt : 0;
+      if (EZ.slowT > 2.5 && env.reset) { EZ.slowT = 0; env.reset(); }
+    }
     function finishText() {
+      if (st.id === 'f1') return 'Zoe drove the whole way. Yiayia is so proud!';
       if (st.id === 'tiguan') return R.food.length ? 'Drove past ' + R.food.length + (R.food.length === 1 ? ' takeaway' : ' takeaways') + ' (-' + (R.food.length * FOOD_S).toFixed(0) + ' s). We have food at home.' : '';
       return st.id === 'ix3' && R.claims > 0 ? (R.claims === 1 ? 'One prang. ' : R.claims + ' prangs. ') + 'The accountant says claim it.' : ''; }
     function hideHud() { matiPill.hidden = true; textEl.classList.remove('on'); }
@@ -37029,7 +37081,7 @@ await __LDstep(57);
         if (p.textContent !== txt) p.textContent = txt;
       }).observe(res, { attributes: true, attributeFilter: ['hidden'] }); }
 
-    return { open, close, apply, applyHandling, frame, runStart, finishText, hideHud, get id() { return st.id; }, get car() { return cur(); }, pick, CARS };
+    return { assist, open, close, apply, applyHandling, frame, runStart, finishText, hideHud, get id() { return st.id; }, get car() { return cur(); }, pick, CARS };
   }
 
   root.PerthCars = { CARS, ORDER, create };
@@ -42434,7 +42486,7 @@ const cardPad = (() => {
 })();
 
 /* PCARS */ const CARSEL = window.PerthCars && window.PerthCar ? window.PerthCars.create({ THREE, PerthCar: window.PerthCar, getC: () => C, handling: HANDLING, paint, swapCar, audio,
-  straights: () => STR, state: () => state, timeBonus: s => { if (state === 'drive' && !FREE()) pausedMs += s * 1000; } }) : null;   // Tiguan: time off the clock
+  straights: () => STR, state: () => state, timeBonus: s => { if (state === 'drive' && !FREE()) pausedMs += s * 1000; }, reset: () => resetToRoad() }) : null;   /* ZOE-F1 reset for easy mode */   // Tiguan: time off the clock
 window.__carsel = CARSEL;
 $('go').onclick = () => {
   const key = $('key').value.trim();
@@ -42811,6 +42863,7 @@ function loop(now) {
   let kmh = 0;
   if (state === 'drive' || state === 'countdown') {
     const inp = readInput(); PCAR_INP = inp;
+    if (CARSEL && CARSEL.assist && state === 'drive' && !(BO && BO.busy())) CARSEL.assist(inp, dt);   /* ZOE-F1 easy mode drives the pink F1 */
     if (state === 'countdown') { countdownStep(); inp.thr = 0; inp.hand = 1; }
     let p = { kmh: 0 }; if (BO && state === 'drive') BO.watch(dt);
     if (BO && BO.busy()) BO.frame(rawDt);
