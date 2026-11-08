@@ -306,7 +306,7 @@ table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nu
   root.SaladScene = { svg };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>window.__LDNETTOTAL=9514825</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<script>window.__LDNETTOTAL=9537955</script><div id="ld" role="progressbar" aria-label="Loading Not the Salad!" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
   <div id="ld-scene"></div>
   <div class="ld-veil"></div>
   <div class="ld-box">
@@ -2849,6 +2849,7 @@ function Builder() { const pos = [], uv = [], idx = []; return { pos, uv, idx,
   mesh(mat) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); g.computeBoundingSphere(); const m = new THREE.Mesh(g, mat); m.receiveShadow = true; return m; } }; }
 const P = (i, off, dy = 0) => { const r = road[i]; return [r.p.x + r.r.x * off, r.h + dy, r.p.y + r.r.y * off]; };
 const GUTTER = 0.35, KERB_W = 0.3, KERB_H = 0.15, PATH_W = 2.2, BRICK_W = 0.7;
+const MB_HATCH = [6012, 6040, 6105, 6130];   // see the Mounts Bay Rd hatching in the road builder
 const DASH = d => (((d % 12) + 12) % 12) < 3;   // 3 m dash, 9 m gap; a plain d % 12 is negative on the Rivervale head (d < 0), which drew every lane line solid there
 const REV_DEL_PAD = 25, REV_LAWN_W = 14;   // beside the reverse route's own carriageway: Google clutter deleted within 25 m, our lawn strip 14 m wide
 const sideInfo = i => { const s = segInfo(road[i].seg); return { mw: road[i].mw, brick: (/Stirling/.test(s.name) && road[i].d > 9500 && road[i].d < 15000) || /Mill Point|Mounts Bay/.test(s.name), /* red brick paths, as on Street View */ urban: !road[i].mw, res: /Keane|Venn|Columba|Richardson|Bindaring|Esplanade/.test(s.name), median: s.oneWay && !road[i].mw }; };
@@ -3232,6 +3233,21 @@ function buildRoad() {
       // edge lines (Peppermint Grove streets have none)
       if (!sd.res && !inRB) for (const s of [-1, 1]) { const o0 = s * (r0.w / 2 - 0.15), o1 = s * (r1.w / 2 - 0.15);
         L.quad(P(i, o0 - 0.06, 0.012), P(i, o0 + 0.06, 0.012), P(i + 1, o1 - 0.06, 0.012), P(i + 1, o1 + 0.06, 0.012), [0, 0], [1, 0], [0, 1], [1, 1]); }
+      // 8 Nov (Kostas, Street View Nov 2023): Mounts Bay Rd westbound just past Point Lewis Rotary is ONE lane. The right lane is
+      // painted out with white chevron hatching behind a solid line, then a crushed-limestone island with give-way signs for the
+      // slip lane on its far side. window.__mbHatch = [start, full, end of full, end] in metres along the route; __noMbHatch=1 turns it off.
+      { const HZ = window.__mbHatch || MB_HATCH; if (!window.__noMbHatch && r1.d > HZ[0] && r0.d < HZ[3] && r0.lanes >= 2) {
+        const PD = (d, lat, dy) => { let k = i; while (k > 0 && road[k].d > d) k--; while (k < road.length - 2 && road[k + 1].d < d) k++;
+          const a = road[k], b = road[k + 1], u = Math.max(0, Math.min(1, (d - a.d) / ((b.d - a.d) || 1))), px = a.p.x + (b.p.x - a.p.x) * u, pz = a.p.y + (b.p.y - a.p.y) * u, rx = a.r.x + (b.r.x - a.r.x) * u, rz = a.r.y + (b.r.y - a.r.y) * u;
+          return [px + rx * lat, a.h + (b.h - a.h) * u + dy, pz + rz * lat]; };
+        const ew = d => { let k = i; while (k < road.length - 2 && road[k + 1].d < d) k++; return road[k].w / 2 - 0.3; };
+        const inner = d => { const f = d < HZ[1] ? (d - HZ[0]) / (HZ[1] - HZ[0]) : d > HZ[2] ? (HZ[3] - d) / (HZ[3] - HZ[2]) : 1, e = ew(d); return e - (e - 0.2) * Math.max(0, Math.min(1, f)); };
+        const s0 = Math.max(r0.d, HZ[0]), s1 = Math.min(r1.d, HZ[3]);
+        if (s1 > s0) { const l0 = inner(s0), l1 = inner(s1); L.quad(PD(s0, l0 - 0.08, 0.013), PD(s0, l0 + 0.08, 0.013), PD(s1, l1 - 0.08, 0.013), PD(s1, l1 + 0.08, 0.013), [0, 0], [1, 0], [0, 1], [1, 1]); }
+        // chevrons every 4.5 m (0.45 m wide), from the solid line forward to the right edge line
+        for (let s = Math.ceil(HZ[0] / 4.5) * 4.5; s < HZ[3]; s += 4.5) { if (s < r0.d || s >= r1.d) continue; const a = inner(s), e = ew(s), run = (e - a) * 0.9; if (e - a < 0.8) continue;
+          L.quad(PD(s, a + 0.1, 0.014), PD(s + run, e - 0.1, 0.014), PD(s + 0.45, a + 0.1, 0.014), PD(s + run + 0.45, e - 0.1, 0.014), [0, 0], [1, 0], [0, 1], [1, 1]); }
+      } }
       // broken lane lines: 3 m dash, 9 m gap
       const lanes = Math.max(1, mg && r0.xs?.lo ? r0.xs.lo : r0.lanes);
       if (lanes > 1 && !sd.res && !inRB && DASH(r0.d)) for (let k = 1; k < lanes; k++) {
@@ -28099,6 +28115,7 @@ await __LDstep(15);
 // surface shows vegetation beside the road (baked height-above-ground) plus OpenStreetMap tree points.
 // Buildings: OpenStreetMap footprints (ODbL, © OpenStreetMap contributors), heights baked from Google's surface.
 const SCN = window.SCENERY;
+window.__noRevSeg = n => /Birdiya/.test(n || '');   // 8 Nov: Birdiya Dr (Point Lewis) is not drawn, see NO_RAMP below
 const NL = SCN.nl, LSTEP = 3, LBASE = 2;           // lateral samples: edge + 2 m + 3 m * k, k < NL
 // the reverse route's own carriageway (where it is not on our road): a grid to find it fast
 const REVG = new Map(), RGC = 9;
@@ -28164,10 +28181,20 @@ const surfOff = (j, k) => k === 0 ? road[j].w / 2 + FOOT : lateralOff(j, k) + 0.
 // the hillside skin: SURF columns out to HK, then (on the big escarpment runs only, HKX > HK) the terrain map TER out to HKX
 let HX = null, HKX = null;
 const hillY = (j, s, k) => k <= HK ? SURF[SURF.at3(j, s, k)] : HX[cell(j, s, k)];
+// 8 Nov (Kostas run 14:01: "the oncoming lanes on Mounts Bay Rd still need work, the embankment's still showing"): where the other
+// carriageway runs as widened asphalt beside ours (road[j].xr, Mounts Bay Rd under Kings Park), the hill skin starts behind its far
+// footpath instead of at our own kerb; columns that fell on that asphalt fold onto the footpath edge at kerb height.
+// ...and the same where it is the reverse route's own ribbon running close beside ours (Mounts Bay Rd at 6.95-7.05 km): its far edge.
+const SKIN_REV = (() => { const E = new Float32Array(road.length); if (!REV) return E; for (let j = 0; j < road.length; j++) { const r = road[j]; if (r.d < 5900 || r.d > 8900) continue; let far = 0, miss = 0;
+    for (let l = r.w / 2 + 0.5; l <= 32 && miss < 8; l += 0.75) { if (onRevRib(r.p.x + r.r.x * l, r.p.y + r.r.y * l, 0.35)) { far = l; miss = 0; } else if (far) miss++; } if (far) E[j] = far + FOOT; }
+  return E; })();
+const skinXR = (j, s) => s !== 1 ? 0 : Math.max(road[j].xr > 0.3 ? road[j].w / 2 + road[j].xr + FOOT : 0, SKIN_REV[j]);
+const skinOff = (j, s, k) => Math.max(surfOff(j, k), skinXR(j, s));
+const skinY = (j, s, k) => surfOff(j, k) < skinXR(j, s) + 1.5 ? (k === 0 || surfOff(j, k) < skinXR(j, s) ? SURF[SURF.at3(j, s, 0)] : Math.min(hillY(j, s, k), SURF[SURF.at3(j, s, 0)] + 0.6)) : hillY(j, s, k);
 function surfAt(j, s, alat) {
-  if (alat <= surfOff(j, 0)) return SURF[SURF.at3(j, s, 0)];
+  if (alat <= skinOff(j, s, 0)) return skinY(j, s, 0);
   const kx = HKX ? HKX[j * 2 + s] : HK;
-  for (let k = 1; k <= kx; k++) { const o1 = surfOff(j, k); if (alat <= o1) { const o0 = surfOff(j, k - 1), u = (alat - o0) / (o1 - o0); return hillY(j, s, k - 1) * (1 - u) + hillY(j, s, k) * u; } }
+  for (let k = 1; k <= kx; k++) { const o1 = skinOff(j, s, k); if (alat <= o1) { const o0 = skinOff(j, s, k - 1), u = o1 - o0 > 1e-3 ? (alat - o0) / (o1 - o0) : 1; return skinY(j, s, k - 1) * (1 - u) + skinY(j, s, k) * u; } }
   return null;
 }
 // 6 Nov (Kostas: Kooyong Rd buildings "lifted above the road"): Kooyong Rd is flat suburban street; the bake read the street trees and
@@ -28735,7 +28762,7 @@ await __LDstep(21);
     const c = chunkOf(j); let b = parts.get(c); if (!b) parts.set(c, b = { pos: [], uv: [], col: [], idx: [] });
     const sg = s ? 1 : -1, v0 = b.pos.length / 3, KX = Math.min(HKX[j * 2 + s], HKX[(j + 1) * 2 + s]);
     for (const jj of [j, j + 1]) for (let k = 0; k <= KX; k++) {
-      const r = road[jj], off = sg * surfOff(jj, k), y = hillY(jj, s, k);
+      const r = road[jj], off = sg * skinOff(jj, s, k), y = skinY(jj, s, k);
       b.pos.push(r.p.x + r.r.x * off, y, r.p.y + r.r.y * off);
       b.uv.push(r.d / 14, (k === 0 ? 0 : surfOff(jj, k) - surfOff(jj, 0) + (y - SURF[SURF.at3(jj, s, 0)])) / 14);
       const yp = hillY(jj, s, Math.max(0, k - 1)), dz = k === 0 ? 0 : (y - yp) / Math.max(0.5, surfOff(jj, k) - surfOff(jj, k - 1));
@@ -28747,7 +28774,7 @@ await __LDstep(21);
   // between the skin's last row and the lawn's first row, so the step between them is a steep bank instead of a see-through notch
   { let nz = 0; for (let j = 0; j < road.length - 1; j++) { const s = 1, h0 = HILLMESH[j * 2 + s], h1 = HILLMESH[(j + 1) * 2 + s]; if (h0 === h1 || road[j].d < 5990 || road[j].d > 8790 || ON_BRIDGE(j)) continue;
       const jh = h0 ? j : j + 1, jl = h0 ? j + 1 : j, rh = road[jh], rl = road[jl], A = [], Bv = [];
-      for (let k = 0; k <= HKX[jh * 2 + s]; k++) { const o = surfOff(jh, k); A.push([o, rh.p.x + rh.r.x * o, hillY(jh, s, k), rh.p.y + rh.r.y * o]); }
+      for (let k = 0; k <= HKX[jh * 2 + s]; k++) { const o = skinOff(jh, s, k); A.push([o, rh.p.x + rh.r.x * o, skinY(jh, s, k), rh.p.y + rh.r.y * o]); }
       for (let k = 0; k < NL; k++) { const e = k === 0 ? GUTTER + KERB_W + 0.05 : LBASE + LSTEP * k, o = rl.w / 2 + e; Bv.push([o, rl.p.x + rl.r.x * o, groundAt(jl, s, e), rl.p.y + rl.r.y * o]); }
       const c = chunkOf(j); let b = parts.get(c); if (!b) parts.set(c, b = { pos: [], uv: [], col: [], idx: [] }); const v0 = b.pos.length / 3;
       for (const P of [...A, ...Bv]) { b.pos.push(P[1], P[2], P[3]); b.uv.push(P[1] / 14, P[3] / 14); col.copy(flat).lerp(steep, 0.6); b.col.push(col.r, col.g, col.b); }
@@ -28880,6 +28907,7 @@ if (REV) {
   let nq = 0;
   for (let i = 0; i < S.length - 1; i++) {
     const s0 = S[i], s1 = S[i + 1]; if (s0.onF && s1.onF) continue;
+    if (window.__noRevSeg(REV.seg(s0.seg).name)) continue;   // 8 Nov: Birdiya Dr is not drawn (see NO_RAMP)
     const c = chunkOf(s0.fi), A = part(c, 'a'), Lb = part(c, 'l'), e0 = s0.w / 2 + 0.35, e1 = s1.w / 2 + 0.35;
     quad(A, P3(s0, -e0, 0.02), P3(s0, e0, 0.02), P3(s1, -e1, 0.02), P3(s1, e1, 0.02), [-e0 / 6, s0.d / 6], [e0 / 6, s0.d / 6], [-e1 / 6, s1.d / 6], [e1 / 6, s1.d / 6]); nq++;
     for (const sg of [-1, 1]) { const o0 = sg * (s0.w / 2 - 0.15), o1 = sg * (s1.w / 2 - 0.15); quad(Lb, P3(s0, o0 - 0.06, 0.035), P3(s0, o0 + 0.06, 0.035), P3(s1, o1 - 0.06, 0.035), P3(s1, o1 + 0.06, 0.035), [0, 0], [1, 0], [0, 1], [1, 1]); }
@@ -28912,6 +28940,10 @@ await __LDstep(26);
 const RAMP = new Map();   // 3 m cell -> { h: ribbon height, g: ground height, b: bridge, e: distance beyond the ribbon edge (m) }
 const RAMP_S = [];        // drawn at-grade samples, for the lawn batter (built after the corridor ground, which it must not overlap)
 const RAMP_DEL = -1e9, RAMP_LAWN = 10, RAMP_BAT = 8;
+// 8 Nov (Kostas run 14:01 and the 15:34 family run: "there's no road there in real life", Point Lewis, left of Mounts Bay Rd at 10.6 km
+// to go): the Birdiya Dr pieces OpenStreetMap carries here, and the trunk link merging from the left, are not drawn. They were only kept
+// for the reverse route, which is gone; oncoming cars no longer use them either (otVisible).
+const NO_RAMP = new Set(['671191757', '1178513021', '972862975', '4849541', '1178513011']);
 if (SCN.ramps && !window.__dbgNoRamps) {
   const CLEAR = 5.5, DECK = 1.2, GRADE = 0.05, PIER = 25;
   const mats = { a: new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.92, side: THREE.DoubleSide, color: window.__dbgRib ? 0x00ffff : 0xffffff, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
@@ -28936,6 +28968,7 @@ if (SCN.ramps && !window.__dbgNoRamps) {
   const ck = (x, z) => Math.floor(x / RC) * 65536 + Math.floor(z / RC);
   const CH = [], ZC = [[], [], []]; let nq = 0, npier = 0;
   for (const ch of SCN.ramps) {
+    if (ch.ids && ch.ids.some(id => NO_RAMP.has(id))) continue;
     const raw = ch.p.map(([la, lo, ln, br]) => { const v = toLocal(la, lo); return { p: new THREE.Vector2(v.x, v.z), ln, br: !!br }; });
     if (raw.length < 2) continue;
     // resample every 3 m, each sample carrying the lanes and bridge flag of its OSM piece
@@ -28950,7 +28983,10 @@ if (SCN.ramps && !window.__dbgNoRamps) {
       s.on = false; s.g = null;
       const ra = rastAt(s.p.x, s.p.y);
       if (ra && ra.j >= 0) { const R = road[ra.j], lat = (s.p.x - R.p.x) * R.r.x + (s.p.y - R.p.y) * R.r.y;
-        if (lat < R.w / 2 + (R.xr || 0) + 1.2 && lat > -R.w / 2 - 1.2 && s.br === ON_BRIDGE(ra.j)) { s.on = true; s.h = R.h; } }
+        // 8 Nov (Kostas: "there's a floating span on the on bridge", Freeway ramp 13.3 km to go): OSM marks part of the very ramp we drive
+        // as a bridge where our road is not one, so it used to be lifted 5.5 m over itself as a free-standing deck. Running along our road = on it.
+        const along = Math.abs(s.t.x * R.t.x + s.t.y * R.t.y) > 0.9;
+        if (lat < R.w / 2 + (R.xr || 0) + 1.2 && lat > -R.w / 2 - 1.2 && (s.br === ON_BRIDGE(ra.j) || along)) { s.on = true; s.h = R.h; } }
       if (!s.on && REV) { const rr = onRevRib(s.p.x, s.p.y, 1.2); if (rr && s.br === !!REV.seg(rr.seg).bridge) { s.on = true; s.h = rr.h; } }
       if (!s.on && window.lmxRampOn) { const oh = window.lmxRampOn(s.p.x, s.p.y); if (oh != null) { s.on = true; s.h = oh; } }   // extras/narrows2: a module deck already carries this ramp piece
       if (!s.on && !s.br) { const oh = OTHER.get(ck(s.p.x, s.p.y)); if (oh != null) { s.on = true; s.h = oh; } }   // the other carriageway, a side street: already drawn
@@ -29413,6 +29449,47 @@ await __LDstep(32);
 }
 // height audit (Kostas, 5 Nov): road height vs the baked Google ground either side; read by the harness, not used by the game
 window.__ter = { TOP, GND, TER, NL, LBASE, LSTEP, cell, audit: (dmin = -1e9, dmax = 1e9) => { const out = []; for (let j = 0; j < road.length; j++) { const r = road[j]; if (r.d < dmin || r.d > dmax) continue; const row = [Math.round(r.d), +r.h.toFixed(1)]; for (let s = 0; s < 2; s++) { const ks = [0, 2, 4]; const vs = ks.map(k => TER[cell(j, s, k)]).filter(v => v === v); row.push(vs.length ? +(Math.min(...vs) - r.h).toFixed(1) : null, vs.length ? +(Math.max(...vs) - r.h).toFixed(1) : null); const g0 = [0, 1, 2].map(k => GND[cell(j, s, k)]).filter(v => v === v); row.push(g0.length ? +(g0.sort((a, b) => a - b)[Math.floor(g0.length / 2)] - r.h).toFixed(1) : null); } row.push(ON_BRIDGE(j) ? 1 : 0, j); out.push(row); } return out; } };
+// 8 Nov (Kostas, Street View Nov 2023): Mounts Bay Rd westbound past Point Lewis: crushed-limestone island right of our kerb with
+// two give-way signs (for the slip lane on its far side), beside the hatched-out right lane (road builder, MB_HATCH).
+(() => { if (window.__noMbHatch) return; const D0 = 6030, D1 = 6112, at = d => { let k = 0; while (k < road.length - 2 && road[k + 1].d < d) k++; return k; };
+  const pos = (d, lat, dy) => { const k = at(d), a = road[k], b = road[k + 1], u = Math.max(0, Math.min(1, (d - a.d) / ((b.d - a.d) || 1)));
+    return new THREE.Vector3(a.p.x + (b.p.x - a.p.x) * u + (a.r.x + (b.r.x - a.r.x) * u) * lat, a.h + (b.h - a.h) * u + dy, a.p.y + (b.p.y - a.p.y) * u + (a.r.y + (b.r.y - a.r.y) * u) * lat); };
+  const g = new THREE.Group(); g.name = 'mbIsland'; scene.add(g);
+  // the island: pale gravel, a touch above kerb height, narrow ends
+  const P = [], I = []; let n = 0;
+  for (let d = D0; d <= D1 + 0.01; d += 2) { const e = road[at(d)].w / 2 + 0.35 + 0.3, f = Math.min(1, (d - D0) / 14, (D1 - d) / 14), w = 0.4 + 3.6 * Math.max(0, f);
+    const a = pos(d, e, 0.16), b = pos(d, e + w, 0.16); P.push(a.x, a.y, a.z, b.x, b.y, b.z); if (n) I.push(n - 2, n - 1, n, n - 1, n + 1, n); n += 2; }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setIndex(I); geo.computeVertexNormals();
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const cx = cv.getContext('2d'); cx.fillStyle = '#cdbf9f'; cx.fillRect(0, 0, 128, 128);
+  for (let q = 0; q < 2600; q++) { const v = 120 + Math.random() * 120 | 0; cx.fillStyle = `rgb(${v},${v - 10},${v - 28})`; cx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2); }
+  const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+  const uv = []; for (let q = 0; q < P.length; q += 3) uv.push(P[q] / 3, P[q + 2] / 3); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  const isl = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 1, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); isl.receiveShadow = true; g.add(isl);
+  // give-way signs: inverted red-bordered triangle on a grey post, face towards us
+  const sc = document.createElement('canvas'); sc.width = sc.height = 128; const s = sc.getContext('2d');
+  const tri = (m, col) => { s.fillStyle = col; s.beginPath(); s.moveTo(m, 8 + m * 0.6); s.lineTo(128 - m, 8 + m * 0.6); s.lineTo(64, 120 - m * 1.2); s.closePath(); s.fill(); };
+  tri(2, '#c8202a'); tri(20, '#ffffff'); s.fillStyle = '#c8202a'; s.font = 'bold 15px Arial'; s.textAlign = 'center'; s.fillText('GIVE', 64, 38); s.fillText('WAY', 64, 54);
+  const stex = new THREE.CanvasTexture(sc); if (THREE.SRGBColorSpace) stex.colorSpace = THREE.SRGBColorSpace;
+  const face = new THREE.MeshBasicMaterial({ map: stex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, toneMapped: false }), post = new THREE.MeshStandardMaterial({ color: 0x9aa0a4, roughness: 0.6, metalness: 0.4 });
+  for (const [d, lat] of [[6062, 2.2], [6088, 2.4]]) { const k = at(d), r = road[k], e = r.w / 2 + 0.65, base = pos(d, e + lat, 0.1);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.6, 8), post); pole.position.copy(base).add(new THREE.Vector3(0, 1.2, 0)); g.add(pole);
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), face); pl.position.copy(base).add(new THREE.Vector3(0, 2.2, 0));
+    pl.lookAt(pl.position.x - r.t.x, pl.position.y, pl.position.z - r.t.y); pl.rotateY(-0.25); g.add(pl); }
+})();
+// 8 Nov (Kostas run 14:01, Richardson Ave 2.6-2.4 km to go: "you can see through the ground in some of the kerbs and the houses"):
+// between the kerb and the Peppermint Grove lots the verge had no surface in places (sky showing through) and a 2 m pit on the
+// right. A backstop under the footpath and verge: grey at footpath level, lawn behind it; anything already there sits above it.
+(() => { if (window.__noRichFill) return; const RUNS = [[13880, 13950], [14080, 14165]];
+  const lawn = new THREE.MeshStandardMaterial({ color: 0x7a9a4a, roughness: 1 }), path = new THREE.MeshStandardMaterial({ color: 0xb9b6ae, roughness: 0.95 });
+  const g = new THREE.Group(); g.name = 'richFill'; scene.add(g);
+  for (const [D0, D1] of RUNS) for (const s of [-1, 1]) for (const [a, b, dy, m] of [[0.35, 2.6, 0.06, path], [2.6, 6.0, -0.04, lawn]]) {
+    const P = [], I = []; let n = 0;
+    for (let j = 0; j < road.length; j++) { const r = road[j]; if (r.d < D0 || r.d > D1) continue; const e = r.w / 2 + 0.3;
+      for (const o of [e + a, e + b]) P.push(r.p.x + r.r.x * s * o, r.h + dy, r.p.y + r.r.y * s * o);
+      if (n) I.push(...(s > 0 ? [n - 2, n - 1, n, n - 1, n + 1, n] : [n - 2, n, n - 1, n - 1, n, n + 1])); n += 2; }
+    if (n < 4) continue; const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setIndex(I); geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, m); m.side = THREE.DoubleSide; mesh.receiveShadow = true; g.add(mesh); }
+})();
 
 
 await __LDstep(33);
@@ -31176,8 +31253,19 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
       const g = tagCanvas.getContext('2d'); g.clearRect(0, 0, 256, 64);
       g.fillStyle = 'rgba(11,18,22,.72)'; const r = 14; g.beginPath(); g.roundRect ? g.roundRect(8, 8, 240, 48, r) : g.rect(8, 8, 240, 48); g.fill();
       g.strokeStyle = 'rgba(127,227,255,.8)'; g.lineWidth = 2; g.stroke();
-      g.fillStyle = '#bff3ff'; g.font = 'italic 800 30px "Barlow Condensed","Arial Narrow",Arial,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 33);
+      g.fillStyle = '#bff3ff'; g.font = 'italic 800 30px "Barlow Condensed","Arial Narrow",Arial,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; const w = g.measureText(text).width; if (w > 224) g.font = `italic 800 ${Math.floor(30 * 224 / w)}px "Barlow Condensed","Arial Narrow",Arial,sans-serif`; g.fillText(text, 128, 33);
       tagTex.needsUpdate = true;
+    }
+    // 8 Nov (afternoon runs): family asked "why is that blue car following me?". Name the ghost and say what it is once.
+    function whoNow() { try { return (localStorage.getItem('nts-name') || '').slice(0, 16); } catch { return ''; } }
+    const ghostLabel = r => { const w = r && r.meta && r.meta.who; return (w ? w.toUpperCase() + "'S BEST " : 'BEST RUN ') + (r ? fmt(r.meta.time ?? r.duration) : ''); };
+    let ghostHinted = false;
+    function ghostHint(r) {
+      if (ghostHinted || !r) return; ghostHinted = true;
+      const w = r.meta && r.meta.who, h = el('div', { class: 'px-hud', id: 'pxGhostHint' });
+      h.style.cssText = 'top:22%;font-size:20px;background:rgba(11,18,22,.72);border:1px solid rgba(127,227,255,.6);border-radius:10px;padding:8px 16px;text-align:center;transition:opacity .6s';
+      h.innerHTML = `The see-through blue car is ${w ? esc(w) + "'s" : 'the'} best run on this device.<br><small style="font-size:14px;opacity:.8">Race it, or turn it off in Settings &gt; Ghost of best run.</small>`;
+      document.body.appendChild(h); setTimeout(() => { h.style.opacity = '0'; }, 6500); setTimeout(() => h.remove(), 7300);
     }
     const tmpV = new THREE.Vector3();
     function placeGhost(rec, t, show) {
@@ -31188,7 +31276,7 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
       const inner = ghostModel || ghostFallback; if (inner) inner.rotation.set(p.pitch, 0, p.roll);
       // fade out when the camera is right on top of it, so it never blinds the chase view
       const dc = camera.position.distanceTo(tmpV.set(p.x, p.y + 0.8, p.z));
-      const f = clamp((dc - 3) / 7, 0.12, 1); ghostMat.opacity = 0.3 * f; ghostEdge.opacity = 0.18 * f; tag.material.opacity = clamp((dc - 6) / 10, 0, 1) * (dc > 260 ? 0 : 1);
+      const f = clamp((dc - 3) / 7, 0.12, 1); ghostMat.opacity = 0.3 * f; ghostEdge.opacity = 0.18 * f; tag.material.opacity = clamp((dc - 4) / 5, 0, 1) * (dc > 260 ? 0 : 1);
       ghost.visible = true;
     }
 
@@ -31207,11 +31295,11 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
       migrateLegacy();
       board = loadBoard(); best = loadGhost(); R.reset(); running = false; cpDone = []; deltaShown = null; deltaAcc = 0; lastT = 0;
       closeAll(); buildChips();
-      drawTag(best ? 'BEST ' + fmt(best.meta.time ?? best.duration) : 'BEST');
+      drawTag(ghostLabel(best));
       $d.hidden = true; $chips.hidden = false;
       placeGhost(best, 0, ghostOn() && !!best);
     }
-    function go() { running = true; R.reset(); }
+    function go() { running = true; R.reset(); if (best && ghostOn()) ghostHint(best); }
     function frame(t, dt) {
       if (!running) return;
       lastT = t;
@@ -31224,8 +31312,8 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
         deltaAcc = 0; const tb = best.timeAtD(d);
         if (tb != null && d - T[0].d > 30) {
           const delta = t - tb; deltaShown = deltaShown == null ? delta : lerp(deltaShown, delta, 0.5);
-          $d.hidden = false; $d.className = 'px-hud ' + (deltaShown <= 0 ? 'px-good' : 'px-bad');
-          $d.innerHTML = fmtDelta(deltaShown) + '<small>vs best</small>';
+          $d.hidden = false; $d.className = 'px-hud ' + (deltaShown <= 0 ? 'px-good' : deltaShown > 10 ? '' : 'px-bad');
+          $d.innerHTML = deltaShown > 10 ? '<small style="font-size:16px;opacity:.85">Your own drive · the ghost is ahead</small>' : fmtDelta(deltaShown) + '<small>vs best</small>';
         } else if (tb == null) $d.hidden = true;
       }
     }
@@ -31250,7 +31338,7 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
       const splits = (res.splits || []).slice(); while (splits.length < names().length - 1) splits.push(null); if (splits.length < names().length) splits.push(t);
       R.push(t, C, liveD(), Math.hypot(C.vx || 0, C.vz || 0) * 3.6);
       const k = rkey();
-      lastRec = R.rec({ time: t, splits, at: new Date().toISOString(), dir: dirOf(), valid });
+      lastRec = R.rec({ time: t, splits, at: new Date().toISOString(), dir: dirOf(), valid, who: whoNow() });
       prevBestRec = best;
       board = loadBoard(k); const prevPB = board.runs[0] || null;
       const prevSectorBest = (board.sectorBest || []).slice();
@@ -31411,7 +31499,7 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
       closeResults(); if ($board) { $board.remove(); $board = null; }
       saveCam(); saveCarPose(); hideHud(true);
       Object.assign(RP, { on: true, rec, which, ghostRec: which === 'last' ? prevBestRec : null, t: 0, playing: true, speed: 1, station: null, spin: 0 });
-      drawTag(RP.ghostRec ? 'BEST ' + fmt(RP.ghostRec.meta.time ?? RP.ghostRec.duration) : 'BEST');
+      drawTag(ghostLabel(RP.ghostRec));
       RP.$tag = el('div', { id: 'pxReplayTag' }, '');
       RP.$bar = el('div', { id: 'pxReplayBar', role: 'toolbar', 'aria-label': 'Replay controls' }, `
         <div class="row1">
@@ -31440,7 +31528,7 @@ table.px-t tr.me td{color:var(--sun,#ffb21e)}
     function cycleCam() { RP.cam = (RP.cam + 1) % CAMS.length; RP.station = null; if (CAMS[RP.cam] === 'Free orbit') orbitFromCamera(); updateReplayUi(); }
     function closeReplay(toResults = true) {
       if (!RP.on) return; RP.on = false; RP.$bar?.remove(); RP.$tag?.remove(); RP.$bar = RP.$tag = null;
-      restoreCam(); restoreCarPose(); ghost.visible = false; drawTag(best ? 'BEST ' + fmt(best.meta.time ?? best.duration) : 'BEST');
+      restoreCam(); restoreCarPose(); ghost.visible = false; drawTag(ghostLabel(best));
       if (toResults && lastResult) showResults(); else hideHud(false);
     }
     let uiTick = 0;
@@ -35070,7 +35158,7 @@ await __LDstep(57);
         i = j;
       }
       // fix the turn sense against the real geometry: cross product of the tangents before and after
-      for (const c of corners) { const a = T[Math.max(0, c.i0 - 2)].t, b = T[Math.min(N - 1, c.i1 + 2)].t, cr = a.x * b.y - a.y * b.x; c.right = cr < 0; }
+      for (const c of corners) { const a = T[Math.max(0, c.i0 - 2)].t, b = T[Math.min(N - 1, c.i1 + 2)].t, cr = a.x * b.y - a.y * b.x; c.right = cr > 0; }   // 8 Nov: z is south here, so a right turn has cr > 0 (the sign showed LEFT at Keane St)
       // pads: 25 m past each sharp corner exit (if the road runs straight-ish after it), plus every ~950 m without one
       const pads = [], ok = i => i > 30 && i < N - 40 && !corners.some(c => T[i].d > c.d0 - 50 && T[i].d < c.d1 + 12);
       const at = d => { let lo = 0, hi = N - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (T[m].d <= d) lo = m; else hi = m; } return lo; };
@@ -39890,6 +39978,144 @@ body #pctext:not(.on){visibility:hidden;transition:transform .35s cubic-bezier(.
   if (document.readyState === 'loading') addEventListener('DOMContentLoaded', wire); else wire();
 })();
 
+/* extras/newplayer: help for a first-time player (Kostas, 8 Nov 2026, from the family runs 15:08-15:34 AWST).
+ *  A. Turn guidance: "I can't see where the roads are turning ... you need a closer map". A banner with a big arrow, the road you
+ *     turn into and the distance appears ~250 m before each turn of the route, and the minimap zooms in (heading-up) near turns.
+ *  B. Getting stuck: "Mommy's finally got stuck ... press X". If you keep pressing accelerate or brake but the car will not move for
+ *     2 s, a banner counts down and puts you back on the road (the same reset as R / Y).
+ *  C. Camera: "move the camera down". The look-around orbit's up/down tilt now eases back behind the car 1.5 s after you let go
+ *     (left/right orbit stays where you put it, as Kostas asked on 5 Nov). Calmer speed and boost FOV is in handling.js (integrate.py).
+ * Needs window.__game, window.__inp and window.__resetToRoad (game-template, integrate.py). Self-contained, no globals besides
+ * window.PerthNewPlayer. Turn off with localStorage 'perthNP-off' = '1'.
+ */
+(function () {
+  'use strict';
+  let off = false; try { off = localStorage.getItem('perthNP-off') === '1'; } catch (e) { }
+  if (off) return;
+  const NP = window.PerthNewPlayer = { turns: [], stats: {} };
+  const css = `
+body.np-turning #fairCorner{display:none!important}
+#np-turn{position:fixed;left:50%;top:18px;transform:translateX(-50%) translateY(-8px);z-index:3;display:flex;align-items:center;gap:14px;
+  padding:10px 18px 10px 12px;border-radius:14px;background:rgba(14,20,24,.82);color:#fff;font:600 18px/1.15 Barlow,system-ui,sans-serif;
+  box-shadow:0 6px 22px rgba(0,0,0,.35);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;min-width:230px}
+#np-turn.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#np-turn svg{width:54px;height:54px;flex:none}
+#np-turn .t1{font-size:24px;font-weight:700;letter-spacing:.2px}
+#np-turn .t2{font-size:15px;font-weight:500;color:#cfd8dc;margin-top:2px}
+#np-turn .bar{height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin-top:7px;overflow:hidden}
+#np-turn .bar i{display:block;height:100%;background:#ffb21e;width:0}
+#np-turn.now .bar i{background:#6fd08c}
+#np-stuck{position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:3;padding:12px 20px;border-radius:12px;background:rgba(14,20,24,.85);
+  color:#fff;font:600 20px Barlow,system-ui,sans-serif;display:none;pointer-events:none;text-align:center}
+#np-stuck small{display:block;font-size:14px;font-weight:500;color:#cfd8dc;margin-top:3px}
+#np-map{position:fixed;z-index:2;pointer-events:none;opacity:0;transition:opacity .35s;border-radius:12px}
+#np-map.on{opacity:1}
+@media (max-width:700px){#np-turn{top:64px;padding:8px 14px 8px 10px;min-width:0}#np-turn svg{width:42px;height:42px}#np-turn .t1{font-size:19px}#np-turn .t2{font-size:13px}}`;
+  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+  const el = (tag, id, html) => { const e = document.createElement(tag); e.id = id; if (html) e.innerHTML = html; document.body.appendChild(e); return e; };
+  const turnEl = el('div', 'np-turn', '<svg viewBox="0 0 64 64"></svg><div><div class="t1"></div><div class="t2"></div><div class="bar"><i></i></div></div>');
+  const stuckEl = el('div', 'np-stuck');
+  const mapC = el('canvas', 'np-map'); mapC.width = 480; mapC.height = 340; const mx = mapC.getContext('2d');
+
+  // arrows: drawn in a 64 box, pointing up then bending left/right; 'sharp' bends further
+  const arrowSvg = (dir, sharp) => {
+    const s = dir === 'left' ? -1 : 1, bx = 32, tipX = 32 + s * (sharp ? 18 : 20), tipY = sharp ? 34 : 18;
+    const path = sharp ? `M${bx} 58 L${bx} 26 Q${bx} 16 ${bx + s * 8} 22 L${tipX} 34` : `M${bx} 58 L${bx} 34 Q${bx} 18 ${tipX - s * 8} 18`;
+    const hx = sharp ? tipX : tipX, hy = tipY, ang = sharp ? Math.atan2(34 - 22, (tipX - (bx + s * 8))) : (s > 0 ? 0 : Math.PI);
+    const L = 11, a1 = ang + 2.6, a2 = ang - 2.6;
+    const head = `M${(hx + Math.cos(a1) * L).toFixed(1)} ${(hy + Math.sin(a1) * L).toFixed(1)} L${hx + Math.cos(ang) * 3} ${hy + Math.sin(ang) * 3} L${(hx + Math.cos(a2) * L).toFixed(1)} ${(hy + Math.sin(a2) * L).toFixed(1)}`;
+    return `<path d="${path}" fill="none" stroke="#ffb21e" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="${head}" fill="none" stroke="#ffb21e" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`;
+  };
+
+  // ---------- turns of the route ----------
+  function findTurns(G, T) {
+    const N = T.length, name = i => (G.segInfo(T[i].seg) || {}).name || '';
+    const idxAtD = (d) => { let lo = 0, hi = N - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (T[m].d < d) lo = m + 1; else hi = m; } return lo; };
+    const hd = (d0, d1) => { const a = T[idxAtD(d0)], b = T[idxAtD(d1)]; return Math.atan2(b.p.y - a.p.y, b.p.x - a.p.x); };
+    const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+    const out = [];
+    for (let i = 1; i < N; i++) {
+      if (name(i) === name(i - 1) || !name(i)) continue;
+      const d = T[i].d; if (d - T[0].d < 30 || T[N - 1].d - d < 20) continue;
+      // the bend: heading over the 35 m before vs the 35 m after the change, measured around the sharpest point within ±40 m
+      let best = 0, bd = d;
+      for (let q = -40; q <= 40; q += 5) { const dd = d + q, a = wrap(hd(dd + 2, dd + 37) - hd(dd - 37, dd - 2)); if (Math.abs(a) > Math.abs(best)) { best = a; bd = dd; } }
+      if (Math.abs(best) < 0.6) continue;   // < ~35°: the road just changes name (or bends), no turn to make
+      // canvas frame: x east, y = z south; atan2(z, x) grows clockwise seen from above, so + is a right turn
+      const t = { d: bd, dir: best > 0 ? 'right' : 'left', sharp: Math.abs(best) > 1.75, deg: Math.round(Math.abs(best) * 57.3), into: name(i) };
+      const prev = out[out.length - 1]; if (prev && t.d - prev.d < 90) { if (Math.abs(t.deg) > prev.deg) out[out.length - 1] = t; continue; }
+      out.push(t);
+    }
+    return out;
+  }
+  const isRound = s => /Rotary|Roundabout/i.test(s || '');
+
+  // ---------- local map (heading-up, ~350 m ahead) ----------
+  function drawLocal(G, T, C, turn) {
+    const W = 480, H = 340; mx.clearRect(0, 0, W, H);
+    mx.fillStyle = 'rgba(14,20,24,.86)'; mx.beginPath(); mx.roundRect ? mx.roundRect(0, 0, W, H, 22) : mx.rect(0, 0, W, H); mx.fill();
+    const yaw = Math.atan2(-(C.vz || 0), (C.vx || 0)), sp = Math.hypot(C.vx || 0, C.vz || 0);
+    // heading from the route around the car (steadier than the car's own yaw)
+    const r0 = T[Math.max(0, C.idx - 4)], r1 = T[Math.min(T.length - 1, C.idx + 6)]; let hx = r1.p.x - r0.p.x, hz = r1.p.y - r0.p.y; const hl = Math.hypot(hx, hz) || 1; hx /= hl; hz /= hl;
+    const sc = 0.62, cx = W / 2, cy = H - 56;   // px per metre, car near the bottom
+    const P = (x, z) => { const dx = x - C.x, dz = z - C.z, f = dx * hx + dz * hz, r = dx * -hz + dz * hx; return [cx - r * sc * -1, cy - f * sc]; };
+    // the route: behind grey, ahead orange, the turn highlighted
+    const i0 = Math.max(0, C.idx - 30); let i1 = C.idx; while (i1 < T.length - 1 && T[i1].d < T[C.idx].d + 520) i1++;
+    mx.lineJoin = mx.lineCap = 'round';
+    const line = (a, b, w, col) => { mx.lineWidth = w; mx.strokeStyle = col; mx.beginPath(); for (let i = a; i <= b; i++) { const [x, y] = P(T[i].p.x, T[i].p.y); i === a ? mx.moveTo(x, y) : mx.lineTo(x, y); } mx.stroke(); };
+    line(i0, i1, 22, 'rgba(255,255,255,.12)');
+    line(i0, C.idx, 12, 'rgba(255,255,255,.35)');
+    line(C.idx, i1, 12, '#ffb21e');
+    if (turn) { let a = C.idx; while (a < i1 && T[a].d < turn.d - 25) a++; let b = a; while (b < i1 && T[b].d < turn.d + 45) b++; if (b > a) line(a, b, 14, '#ffd27a');
+      const [tx, ty] = P(T[a].p.x, T[a].p.y); mx.fillStyle = '#fff'; mx.font = '700 22px Barlow, sans-serif'; mx.textAlign = 'center';
+      mx.fillText(turn.into, Math.max(80, Math.min(W - 80, tx)), Math.max(30, ty - 22)); }
+    // the car
+    mx.save(); mx.translate(cx, cy); mx.fillStyle = '#fff'; mx.beginPath(); mx.moveTo(0, -16); mx.lineTo(11, 12); mx.lineTo(0, 6); mx.lineTo(-11, 12); mx.closePath(); mx.fill(); mx.restore();
+  }
+
+  // ---------- per frame ----------
+  let G = null, T = null, turns = [], lastT = 0, stuckT = 0, stuckShown = false, resetCool = 0, mapRectT = 0, lastPitch = 0, pitchIdle = 0, mapOn = false;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.5, (now - (lastT || now)) / 1000); lastT = now;   // timers run on real time even when frames are slow
+    G = window.__game; if (!G || !G.road) return;
+    if (G.TRK !== T) { T = G.TRK; if (T && T.length) { turns = NP.turns = findTurns(G, T); } }
+    const C = G.C, state = G.state, driving = state === 'drive';
+    // A: turn banner + local map
+    let next = null;
+    if (driving && T && T[C.idx]) { const d = T[C.idx].d; for (const t of turns) if (t.d > d - 12) { next = t; break; } }
+    const dist = next ? next.d - T[C.idx].d : 1e9;
+    const showTurn = driving && next && dist < 260;
+    if (showTurn) {
+      const key = next.d + next.dir; if (turnEl.dataset.k !== String(key)) { turnEl.dataset.k = key; turnEl.querySelector('svg').innerHTML = arrowSvg(next.dir, next.sharp);
+        turnEl.querySelector('.t1').textContent = isRound(next.into) ? `Roundabout: go ${next.dir}` : `${next.sharp ? 'Sharp ' + next.dir : 'Turn ' + next.dir}`;
+        turnEl.querySelector('.t2').textContent = isRound(next.into) ? next.into : `into ${next.into}`; }
+      turnEl.querySelector('.bar i').style.width = Math.max(0, Math.min(100, 100 - dist / 2.4)).toFixed(0) + '%';
+      turnEl.classList.toggle('now', dist < 40);
+    }
+    turnEl.classList.toggle('on', !!showTurn);
+    document.body.classList.toggle('np-turning', !!showTurn);   // the fair corner sign steps aside while the turn banner is up
+    // local map over the minimap, near turns
+    const mapEl = document.getElementById('map'); const want = !!(showTurn || (driving && next && dist < 330)) && mapEl && !mapEl.hidden && mapEl.getClientRects().length > 0 && getComputedStyle(mapEl).visibility !== 'hidden';
+    if (want) { if (now - mapRectT > 500 || !mapOn) { mapRectT = now; const r = mapEl.getBoundingClientRect(); Object.assign(mapC.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }); }
+      if (Math.floor(now / 50) !== Math.floor((now - dt * 1000) / 50)) drawLocal(G, T, C, next); }
+    if (want !== mapOn) { mapOn = want; mapC.classList.toggle('on', want); }
+    // B: stuck while trying to drive
+    const inp = window.__inp || {}, kmh = Math.hypot(C.vx || 0, C.vz || 0) * 3.6, trying = (inp.thr || 0) > 0.3 || (inp.brk || 0) > 0.3;
+    resetCool = Math.max(0, resetCool - dt);
+    if (driving && trying && kmh < 4 && resetCool === 0) stuckT += dt; else stuckT = Math.max(0, stuckT - dt * 2);
+    if (stuckT > 2) { const left = Math.max(0, 4 - stuckT); stuckEl.innerHTML = `Stuck? Back on the road in ${Math.ceil(left)}<small>or press R / Y any time</small>`; stuckEl.style.display = 'block'; stuckShown = true;
+      if (stuckT >= 4 && typeof window.__resetToRoad === 'function') { window.__resetToRoad(); NP.stats.resets = (NP.stats.resets || 0) + 1; stuckT = 0; resetCool = 3; } }
+    else if (stuckShown) { stuckEl.style.display = 'none'; stuckShown = false; }
+    // C: the orbit's tilt eases back after 1.5 s without look input
+    const F = window.__FLK; if (F && driving) {
+      if (F.drag || Math.abs(F.pitch - lastPitch) > 1e-4) pitchIdle = 0; else pitchIdle += dt;
+      if (pitchIdle > 1.5 && F.pitch) { F.pitch -= F.pitch * Math.min(1, dt * 3); if (Math.abs(F.pitch) < 0.003) F.pitch = 0; }
+      lastPitch = F.pitch; }
+  }
+  requestAnimationFrame(frame);
+})();
+
 
 // Google's trees and walls right next to the camera dissolve (dithered) so they never fill the screen
 function patchNearFade(mat) {
@@ -41901,7 +42127,7 @@ const TXT = { fwd: { from: 'Surrey Rd, Rivervale', to: '7 Columba Place', toSub:
   // Camera effects: speed FOV, acceleration kick, shake, lean, look into the slide
   // ------------------------------------------------------------------
   function createCameraFX(opts) {
-    const o = Object.assign({ baseFov: 60, bonnetFov: 70, speedFov: 15, accelFov: 0.35, shake: 1, boostFov: 7 }, opts || {});
+    const o = Object.assign({ baseFov: 60, bonnetFov: 70, speedFov: 10, accelFov: 0.35, shake: 1, boostFov: 4 }, opts || {});
     let t = 0, boostK = 0, fovKick = 0, hitShake = 0, lastHit = 0, look = 0, roll = 0;
     // cheap smooth noise: sum of incommensurate sines
     const n1 = x => Math.sin(x * 1.0) * 0.5 + Math.sin(x * 2.31 + 1.3) * 0.3 + Math.sin(x * 5.17 + 0.4) * 0.2;
@@ -41922,7 +42148,7 @@ const TXT = { fwd: { from: 'Surrey Rd, Rivervale', to: '7 Columba Place', toSub:
         lastHit = C.hit || 0; hitShake = Math.max(0, hitShake - dt * 3);
         const speedAmp = Math.max(0, (kmh - 70) / 200) ** 1.5 * 0.05;
         const slideAmp = (C.slip || 0) * Math.min(1, kmh / 80) * 0.025;
-        const amp = (speedAmp + slideAmp + boostK * 0.02) * (bonnet ? 0.6 : 1) * o.shake;
+        const amp = (speedAmp + slideAmp + boostK * 0.01) * (bonnet ? 0.6 : 1) * o.shake;
         const k = hitShake * 0.18 * o.shake;
         const f = bonnet ? 1.6 : 1;
         const ox = n1(t * 17 * f) * amp + n1(t * 41 + 7) * k;
@@ -42282,7 +42508,7 @@ function otIndexNear(i) { if (TRK !== road) return TRK[i].fi; if (!F2R) { F2R = 
 function otVisible(T, i) {
   const r = T[i];
   if (T === road) return true;   // forward-road traffic always runs the forward way; the reverse route never shares a one-way road against it
-  if (!r.onF) return true; const f = road[r.fi]; return !segInfo(f.seg).oneWay && (r.t.x * f.t.x + r.t.y * f.t.y) < -0.7;
+  if (!r.onF) return !(window.__noRevSeg && window.__noRevSeg(REV.seg(r.seg).name)); const f = road[r.fi]; return !segInfo(f.seg).oneWay && (r.t.x * f.t.x + r.t.y * f.t.y) < -0.7;
 }
 function spawnTraffic(tc, d) {
   let i = TRK.findIndex(r => r.d >= d); if (i < 0) i = TRK.length - 2;
@@ -42485,6 +42711,7 @@ const show = (id, on) => $(id).hidden = !on;
 const hudOn = on => ['roadsign', 'speedo', 'map', 'fpsbox'].forEach(id => show(id, on));
 function toSetup(msg) { if (STR) STR.hide(); if (CARSEL) CARSEL.hideHud(); /* PCARS */ state = 'setup'; audio.scene('menu');   /* pausefix v1 */ hudOn(false); show('pause', false); show('loading', false); show('results', false); show('setup', true); if (BO) BO.hide(); $('err').textContent = msg || ''; }
 function resetToRoad() { placeClear(C.idx); camInit = true; toast('Back on the road', '', 1000); }
+window.__resetToRoad = resetToRoad;
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'drive') togglePause(); else if (state === 'done') audio.scene(document.hidden ? 'pause' : 'results'); });   // pausefix v1
 // per-run statistics: average frame rate and map data downloaded (shown on the results card)
 const runStats = (() => { let frames = 0, secs = 0, bytes = 0, base = 0; const tally = () => { let b = 0; for (const e of performance.getEntriesByType('resource')) if (/googleapis\.com/.test(e.name)) b += e.transferSize || e.encodedBodySize || 0; return b; };
@@ -42913,7 +43140,7 @@ function loop(now) {
   fpsN++; if (now - fpsReal > 500) { $('fps').textContent = Math.round(fpsN * 1000 / (now - fpsReal)); fpsReal = now; fpsN = 0; }
   let kmh = 0;
   if (state === 'drive' || state === 'countdown') {
-    const inp = readInput(); PCAR_INP = inp;
+    const inp = readInput(); PCAR_INP = inp; window.__inp = inp;
     if (CARSEL && CARSEL.assist && state === 'drive' && !(BO && BO.busy())) CARSEL.assist(inp, dt);   /* ZOE-F1 easy mode drives the pink F1 */
     if (state === 'countdown') { countdownStep(); inp.thr = 0; inp.hand = 1; }
     let p = { kmh: 0 }; if (BO && state === 'drive') BO.watch(dt);
